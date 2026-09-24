@@ -1,0 +1,84 @@
+# ================================
+# Visual Studio / .NET
+# ================================
+
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio cache
+.vs/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+# .NET generated files
+*.dll
+*.exe
+*.pdb
+*.cache
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# Test results
+TestResults/
+*.trx
+
+# Visual Studio profiling
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+*.swp
+*.old
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# JetBrains Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+# VS Code
+.vscode/
+
+# Publish output
+publish/
+PublishProfiles/
+
+# Local database files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Crash dumps
+*.dmp
