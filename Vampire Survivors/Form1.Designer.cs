@@ -42,7 +42,6 @@
             Name = "Form1";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "ArenaSurvivors";
-            Load += Form1_Load;
             ResumeLayout(false);
         }
 
