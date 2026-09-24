@@ -12,6 +12,8 @@ namespace Vampire_Survivors.Rendering
         private readonly Font normalDamageFont;
         private readonly Font criticalDamageFont;
 
+        private readonly Brush experienceGemBrush = new SolidBrush(Color.Cyan);
+
         private static readonly System.Drawing.Imaging.ColorMatrix hitFlashColorMatrix =
             new System.Drawing.Imaging.ColorMatrix(
                 new float[][]
@@ -47,7 +49,8 @@ namespace Vampire_Survivors.Rendering
             Player player,
             List<Enemy> enemies,
             List<Bullet> bullets,
-            List<DamageNumber> damageNumbers)
+            List<DamageNumber> damageNumbers,
+            List<ExperienceGem> experienceGems)
         {
             // Pixel-art rendering, configured once.
             g.InterpolationMode =
@@ -60,6 +63,7 @@ namespace Vampire_Survivors.Rendering
                 System.Drawing.Drawing2D.SmoothingMode.None;
 
             DrawGrass(g, clientSize);
+            DrawExperienceGems(g, experienceGems);
             DrawEnemies(g, enemies);
             DrawBullets(g, bullets);
             DrawPlayer(g, player);
@@ -84,6 +88,20 @@ namespace Vampire_Survivors.Rendering
                         GraphicsUnit.Pixel
                     );
                 }
+            }
+        }
+
+        private void DrawExperienceGems(Graphics g, List<ExperienceGem> experienceGems)
+        {
+            foreach (ExperienceGem gem in experienceGems)
+            {
+                g.FillRectangle(
+                    experienceGemBrush,
+                    gem.X,
+                    gem.Y,
+                    ExperienceGem.Size,
+                    ExperienceGem.Size
+                );
             }
         }
 
@@ -176,13 +194,34 @@ namespace Vampire_Survivors.Rendering
             g.TranslateTransform(playerCenter.X, playerCenter.Y);
             g.RotateTransform(player.Angle);
 
-            g.DrawImage(
-                playerSprite,
-                -pivotX,
-                -pivotY,
-                Player.Width,
-                Player.Height
-            );
+            if (player.HitFlashRemainingMs > 0)
+            {
+                g.DrawImage(
+                    playerSprite,
+                    new Rectangle(
+                        (int)-pivotX,
+                        (int)-pivotY,
+                        Player.Width,
+                        Player.Height
+                    ),
+                    0,
+                    0,
+                    playerSprite.Width,
+                    playerSprite.Height,
+                    GraphicsUnit.Pixel,
+                    hitFlashAttributes
+                );
+            }
+            else
+            {
+                g.DrawImage(
+                    playerSprite,
+                    -pivotX,
+                    -pivotY,
+                    Player.Width,
+                    Player.Height
+                );
+            }
 
             g.Restore(state);
         }
@@ -253,6 +292,7 @@ namespace Vampire_Survivors.Rendering
 
             normalDamageFont.Dispose();
             criticalDamageFont.Dispose();
+            experienceGemBrush.Dispose();
             hitFlashAttributes.Dispose();
         }
     }

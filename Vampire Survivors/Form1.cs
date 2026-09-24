@@ -10,6 +10,7 @@ namespace Vampire_Survivors
         private readonly List<Bullet> bullets = new();
         private readonly List<Enemy> enemies = new();
         private readonly List<DamageNumber> damageNumbers = new();
+        private readonly List<ExperienceGem> experienceGems = new();
 
         private readonly InputManager input = new();
         private readonly CombatSystem combat = new();
@@ -17,6 +18,10 @@ namespace Vampire_Survivors
         private readonly GameRenderer renderer;
 
         private readonly System.Windows.Forms.Timer gameTimer;
+
+        private readonly int healthFillMaxWidth;
+        private readonly int xpFillMaxWidth;
+        private int lastHealth;
 
         private bool isCleanedUp;
 
@@ -26,6 +31,19 @@ namespace Vampire_Survivors
 
             DoubleBuffered = true;
             KeyPreview = true;
+
+            healthFillMaxWidth = pnlHealthFill.Width;
+            xpFillMaxWidth = pnlXpFill.Width;
+            lastHealth = player.Health;
+
+            pnlHealthBackground.BringToFront();
+            lblHealth.BringToFront();
+            lblLevel.BringToFront();
+            pnlXpBackground.BringToFront();
+            lblXp.BringToFront();
+
+            UpdateHealthUI();
+            UpdateExperienceUI();
 
             player.X = (ClientSize.Width - Player.Width) / 2f;
             player.Y = (ClientSize.Height - Player.Height) / 2f;
@@ -44,13 +62,7 @@ namespace Vampire_Survivors
 
             FormClosed += (_, _) => Cleanup();
             Disposed += (_, _) => Cleanup();
-
-            enemies.Add(new Enemy
-            {
-                X = 100,
-                Y = 100
-            });
-        }
+        }    
 
         private void Form1_KeyDown(object? sender, KeyEventArgs e)
         {
@@ -71,7 +83,7 @@ namespace Vampire_Survivors
         {
             input.SetMouse(e.X, e.Y);
 
-            if (e.Button == MouseButtons.Left)
+            if (e.Button == MouseButtons.Left && !player.IsDead)
             {
                 combat.Shoot(player, bullets, input.MouseX, input.MouseY);
             }
@@ -91,13 +103,34 @@ namespace Vampire_Survivors
 
         private void GameTimer_Tick(object? sender, EventArgs e)
         {
-            UpdatePlayer();
+            if (!player.IsDead)
+            {
+                UpdatePlayer();
 
-            combat.UpdateBullets(bullets, enemies, damageNumbers, ClientSize);
+                combat.UpdateBullets(bullets, enemies, damageNumbers, experienceGems, ClientSize);
 
-            combat.UpdateDamageNumbers(damageNumbers);
+                combat.UpdateDamageNumbers(damageNumbers);
 
-            enemyManager.UpdateHitFlashTimers(enemies);
+                enemyManager.UpdateHitFlashTimers(enemies);
+
+                combat.UpdateEnemyContactDamage(player, enemies, 16);
+
+                if (player.Health != lastHealth)
+                {
+                    lastHealth = player.Health;
+                    UpdateHealthUI();
+                }
+
+                if (combat.UpdateExperienceGems(player, experienceGems))
+                {
+                    UpdateExperienceUI();
+                }
+
+                if (!player.IsDead)
+                {
+                    enemyManager.UpdateSpawning(enemies, ClientSize);
+                }
+            }
 
             Invalidate();
         }
@@ -112,8 +145,70 @@ namespace Vampire_Survivors
                 player,
                 enemies,
                 bullets,
-                damageNumbers
+                damageNumbers,
+                experienceGems
             );
+        }
+
+        private void UpdateHealthUI()
+        {
+            float healthFraction = player.MaxHealth > 0
+                ? player.Health / (float)player.MaxHealth
+                : 0f;
+
+            pnlHealthFill.Width = (int)(healthFillMaxWidth * healthFraction);
+
+            lblHealth.Text = $"HP {player.Health} / {player.MaxHealth}";
+
+            if (player.IsDead)
+            {
+                pnlGameOver.Visible = true;
+                pnlGameOver.BringToFront();
+            }
+        }
+
+        private void BtnRespawn_Click(object? sender, EventArgs e)
+        {
+            RestartGame();
+        }
+
+        private void RestartGame()
+        {
+            player.Reset(
+                (ClientSize.Width - Player.Width) / 2f,
+                (ClientSize.Height - Player.Height) / 2f
+            );
+
+            input.Reset();
+            enemyManager.Reset();
+
+            enemies.Clear();
+            bullets.Clear();
+            damageNumbers.Clear();
+            experienceGems.Clear();
+
+            lastHealth = player.Health;
+
+            pnlGameOver.Visible = false;
+
+            UpdateHealthUI();
+            UpdateExperienceUI();
+
+            Invalidate();
+        }
+
+        private void UpdateExperienceUI()
+        {
+            float xpFraction = player.ExperienceToNextLevel > 0
+                ? player.Experience / (float)player.ExperienceToNextLevel
+                : 0f;
+
+            xpFraction = Math.Clamp(xpFraction, 0f, 1f);
+
+            pnlXpFill.Width = (int)(xpFillMaxWidth * xpFraction);
+
+            lblLevel.Text = $"LEVEL {player.Level}";
+            lblXp.Text = $"{player.Experience} / {player.ExperienceToNextLevel} XP";
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)

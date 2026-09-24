@@ -14,5 +14,10 @@ namespace Vampire_Survivors.Entities
 
         public const int Size = 128;
         public const float Speed = 2f;
+
+        public RectangleF GetHitbox()
+        {
+            return new RectangleF(X, Y, Size, Size);
+        }
     }
 }

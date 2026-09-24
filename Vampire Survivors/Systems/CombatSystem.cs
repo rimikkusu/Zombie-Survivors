@@ -4,8 +4,13 @@ namespace Vampire_Survivors.Systems
 {
     public class CombatSystem
     {
+        public const int ContactDamage = 20;
+
         public void Shoot(Player player, List<Bullet> bullets, float mouseX, float mouseY)
         {
+            if (player.IsDead)
+                return;
+
             PointF muzzle = player.GetGunMuzzlePosition();
             float muzzleX = muzzle.X;
             float muzzleY = muzzle.Y;
@@ -60,6 +65,7 @@ namespace Vampire_Survivors.Systems
             List<Bullet> bullets,
             List<Enemy> enemies,
             List<DamageNumber> damageNumbers,
+            List<ExperienceGem> experienceGems,
             Size clientSize)
         {
             for (int i = bullets.Count - 1; i >= 0; i--)
@@ -111,6 +117,13 @@ namespace Vampire_Survivors.Systems
                         // Kill enemy
                         if (enemy.Health <= 0)
                         {
+                            // Drop one XP gem at the dead enemy's center.
+                            experienceGems.Add(new ExperienceGem
+                            {
+                                X = enemy.X + Enemy.Size / 2f - ExperienceGem.Size / 2f,
+                                Y = enemy.Y + Enemy.Size / 2f - ExperienceGem.Size / 2f
+                            });
+
                             enemies.RemoveAt(j);
                         }
 
@@ -149,6 +162,59 @@ namespace Vampire_Survivors.Systems
                 if (number.Life <= 0)
                 {
                     damageNumbers.RemoveAt(i);
+                }
+            }
+        }
+
+        public bool UpdateExperienceGems(
+            Player player,
+            List<ExperienceGem> experienceGems)
+        {
+            if (player.IsDead)
+                return false;
+
+            bool collectedAnything = false;
+
+            RectangleF playerHitbox = player.GetHitbox();
+
+            for (int i = experienceGems.Count - 1; i >= 0; i--)
+            {
+                ExperienceGem gem = experienceGems[i];
+
+                if (playerHitbox.IntersectsWith(gem.GetBounds()))
+                {
+                    player.AddExperience(gem.Value);
+                    experienceGems.RemoveAt(i);
+                    collectedAnything = true;
+                }
+            }
+
+            return collectedAnything;
+        }
+
+        public void UpdateEnemyContactDamage(
+            Player player,
+            IReadOnlyList<Enemy> enemies,
+            int elapsedMs)
+        {
+            player.UpdateDamageTimers(elapsedMs);
+
+            if (player.IsDead)
+                return;
+
+            if (player.IsInvulnerable)
+                return;
+
+            RectangleF playerHitbox = player.GetHitbox();
+
+            foreach (Enemy enemy in enemies)
+            {
+                if (playerHitbox.IntersectsWith(enemy.GetHitbox()))
+                {
+                    // Only one damage instance per frame;
+                    // TakeDamage activates invulnerability immediately.
+                    player.TakeDamage(ContactDamage);
+                    break;
                 }
             }
         }

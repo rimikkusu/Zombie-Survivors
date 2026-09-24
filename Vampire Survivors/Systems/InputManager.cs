@@ -46,6 +46,14 @@ namespace Vampire_Survivors.Systems
             MouseY = y;
         }
 
+        public void Reset()
+        {
+            MoveUp = false;
+            MoveDown = false;
+            MoveLeft = false;
+            MoveRight = false;
+        }
+
         public PointF GetMovementDirection()
         {
             float directionX = 0;
