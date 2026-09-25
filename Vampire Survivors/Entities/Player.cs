@@ -157,6 +157,9 @@ namespace Vampire_Survivors.Entities
 
         public void AddExperience(int amount)
         {
+            if (amount <= 0)
+                return;
+
             if (IsDead)
                 return;
 

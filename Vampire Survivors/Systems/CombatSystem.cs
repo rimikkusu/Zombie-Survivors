@@ -6,6 +6,19 @@ namespace Vampire_Survivors.Systems
     {
         public const int ContactDamage = 20;
 
+        // Immediate XP reward granted when a normal enemy dies.
+        public const int MinXpReward = 10;
+        public const int MaxXpReward = 30;
+
+        public const double CriticalChance = 0.05;
+
+        // Visual-only delay before the floating "+XX XP" text appears.
+        // XP itself is always awarded immediately on kill.
+        public const int XpTextDelayMs = 250;
+
+        // Vertical gap between the red kill number and the XP text.
+        public const float XpTextVerticalOffsetPx = 30f;
+
         public void Shoot(Player player, List<Bullet> bullets, float mouseX, float mouseY)
         {
             if (player.IsDead)
@@ -46,8 +59,8 @@ namespace Vampire_Survivors.Systems
             // Normal hit = 50 to 60 damage
             int damage = Random.Shared.Next(50, 61);
 
-            // 20% critical hit chance
-            isCritical = Random.Shared.NextDouble() < 0.20;
+            // 5% critical hit chance
+            isCritical = Random.Shared.NextDouble() < CriticalChance;
 
             if (isCritical)
             {
@@ -61,13 +74,15 @@ namespace Vampire_Survivors.Systems
             return damage;
         }
 
-        public void UpdateBullets(
+        public int UpdateBullets(
+            Player player,
             List<Bullet> bullets,
             List<Enemy> enemies,
             List<DamageNumber> damageNumbers,
-            List<ExperienceGem> experienceGems,
             Size clientSize)
         {
+            int totalXpAwarded = 0;
+
             for (int i = bullets.Count - 1; i >= 0; i--)
             {
                 Bullet bullet = bullets[i];
@@ -105,23 +120,47 @@ namespace Vampire_Survivors.Systems
                         // Flash enemy red
                         enemy.HitFlashTimer = 7;
 
-                        // Create floating damage number
+                        bool isLethal = enemy.Health <= 0;
+
+                        // Exactly one damage number per hit.
+                        // Lethal coloring takes priority over critical coloring.
+                        CombatTextType textType = isLethal
+                            ? (critical ? CombatTextType.CriticalKillDamage : CombatTextType.KillDamage)
+                            : (critical ? CombatTextType.CriticalDamage : CombatTextType.NormalDamage);
+
+                        float enemyCenterX = enemy.X + Enemy.Size / 2f;
+
                         damageNumbers.Add(new DamageNumber
                         {
-                            X = enemy.X + Enemy.Size / 2f,
+                            X = enemyCenterX,
                             Y = enemy.Y,
                             Damage = damage,
-                            IsCritical = critical
+                            Type = textType
                         });
 
-                        // Kill enemy
-                        if (enemy.Health <= 0)
+                        // Kill enemy: award immediate random XP exactly once,
+                        // then remove the enemy.
+                        if (isLethal)
                         {
-                            // Drop one XP gem at the dead enemy's center.
-                            experienceGems.Add(new ExperienceGem
+                            // Preserve death position before removing the enemy.
+                            float deathCenterX = enemyCenterX;
+                            float deathY = enemy.Y;
+
+                            int xpReward = Random.Shared.Next(MinXpReward, MaxXpReward + 1);
+
+                            // Awarded immediately; only the floating text is delayed.
+                            player.AddExperience(xpReward);
+                            totalXpAwarded += xpReward;
+
+                            // XP text appears slightly below the kill number
+                            // after a short visual delay.
+                            damageNumbers.Add(new DamageNumber
                             {
-                                X = enemy.X + Enemy.Size / 2f - ExperienceGem.Size / 2f,
-                                Y = enemy.Y + Enemy.Size / 2f - ExperienceGem.Size / 2f
+                                X = deathCenterX,
+                                Y = deathY + XpTextVerticalOffsetPx,
+                                Damage = xpReward,
+                                Type = CombatTextType.Experience,
+                                DelayRemainingMs = XpTextDelayMs
                             });
 
                             enemies.RemoveAt(j);
@@ -146,13 +185,23 @@ namespace Vampire_Survivors.Systems
                     bullets.RemoveAt(i);
                 }
             }
+
+            return totalXpAwarded;
         }
 
-        public void UpdateDamageNumbers(List<DamageNumber> damageNumbers)
+        public void UpdateDamageNumbers(List<DamageNumber> damageNumbers, int elapsedMs)
         {
             for (int i = damageNumbers.Count - 1; i >= 0; i--)
             {
                 DamageNumber number = damageNumbers[i];
+
+                // Delayed text (XP notification) counts down first;
+                // it neither floats nor fades until the delay expires.
+                if (number.DelayRemainingMs > 0)
+                {
+                    number.DelayRemainingMs -= elapsedMs;
+                    continue;
+                }
 
                 // Float upward
                 number.Y -= 1.5f;
@@ -164,32 +213,6 @@ namespace Vampire_Survivors.Systems
                     damageNumbers.RemoveAt(i);
                 }
             }
-        }
-
-        public bool UpdateExperienceGems(
-            Player player,
-            List<ExperienceGem> experienceGems)
-        {
-            if (player.IsDead)
-                return false;
-
-            bool collectedAnything = false;
-
-            RectangleF playerHitbox = player.GetHitbox();
-
-            for (int i = experienceGems.Count - 1; i >= 0; i--)
-            {
-                ExperienceGem gem = experienceGems[i];
-
-                if (playerHitbox.IntersectsWith(gem.GetBounds()))
-                {
-                    player.AddExperience(gem.Value);
-                    experienceGems.RemoveAt(i);
-                    collectedAnything = true;
-                }
-            }
-
-            return collectedAnything;
         }
 
         public void UpdateEnemyContactDamage(

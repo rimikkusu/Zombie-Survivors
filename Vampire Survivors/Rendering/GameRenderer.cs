@@ -11,8 +11,7 @@ namespace Vampire_Survivors.Rendering
 
         private readonly Font normalDamageFont;
         private readonly Font criticalDamageFont;
-
-        private readonly Brush experienceGemBrush = new SolidBrush(Color.Cyan);
+        private readonly Font experienceFont;
 
         private static readonly System.Drawing.Imaging.ColorMatrix hitFlashColorMatrix =
             new System.Drawing.Imaging.ColorMatrix(
@@ -38,6 +37,7 @@ namespace Vampire_Survivors.Rendering
 
             normalDamageFont = new Font("Arial", 14, FontStyle.Regular);
             criticalDamageFont = new Font("Arial", 18, FontStyle.Bold);
+            experienceFont = new Font("Arial", 12, FontStyle.Regular);
 
             hitFlashAttributes = new System.Drawing.Imaging.ImageAttributes();
             hitFlashAttributes.SetColorMatrix(hitFlashColorMatrix);
@@ -49,8 +49,7 @@ namespace Vampire_Survivors.Rendering
             Player player,
             List<Enemy> enemies,
             List<Bullet> bullets,
-            List<DamageNumber> damageNumbers,
-            List<ExperienceGem> experienceGems)
+            List<DamageNumber> damageNumbers)
         {
             // Pixel-art rendering, configured once.
             g.InterpolationMode =
@@ -63,7 +62,6 @@ namespace Vampire_Survivors.Rendering
                 System.Drawing.Drawing2D.SmoothingMode.None;
 
             DrawGrass(g, clientSize);
-            DrawExperienceGems(g, experienceGems);
             DrawEnemies(g, enemies);
             DrawBullets(g, bullets);
             DrawPlayer(g, player);
@@ -88,20 +86,6 @@ namespace Vampire_Survivors.Rendering
                         GraphicsUnit.Pixel
                     );
                 }
-            }
-        }
-
-        private void DrawExperienceGems(Graphics g, List<ExperienceGem> experienceGems)
-        {
-            foreach (ExperienceGem gem in experienceGems)
-            {
-                g.FillRectangle(
-                    experienceGemBrush,
-                    gem.X,
-                    gem.Y,
-                    ExperienceGem.Size,
-                    ExperienceGem.Size
-                );
             }
         }
 
@@ -228,10 +212,14 @@ namespace Vampire_Survivors.Rendering
 
         private void DrawDamageNumbers(Graphics g, List<DamageNumber> damageNumbers)
         {
-            // Damage numbers are drawn in normal screen space
-            // so they always stay upright.
+            // Floating text is drawn in normal screen space
+            // so it always stays upright (never inherits sprite rotation).
             foreach (DamageNumber number in damageNumbers)
             {
+                // Delayed text (XP notification) is not rendered yet.
+                if (number.DelayRemainingMs > 0)
+                    continue;
+
                 int alpha = Math.Clamp(
                     number.Life * 255 / 45,
                     0,
@@ -239,43 +227,51 @@ namespace Vampire_Survivors.Rendering
                 );
 
                 Color textColor;
+                Font textFont;
+                string text;
 
-                if (number.IsCritical)
+                switch (number.Type)
                 {
-                    textColor = Color.FromArgb(
-                        alpha,
-                        255,
-                        215,
-                        0
-                    );
-                }
-                else
-                {
-                    textColor = Color.FromArgb(
-                        alpha,
-                        255,
-                        255,
-                        255
-                    );
+                    case CombatTextType.CriticalDamage:
+                        textColor = Color.FromArgb(alpha, 255, 215, 0);
+                        textFont = criticalDamageFont;
+                        text = $"{number.Damage}!";
+                        break;
+
+                    case CombatTextType.KillDamage:
+                        textColor = Color.FromArgb(alpha, 255, 60, 60);
+                        textFont = criticalDamageFont;
+                        text = number.Damage.ToString();
+                        break;
+
+                    case CombatTextType.CriticalKillDamage:
+                        textColor = Color.FromArgb(alpha, 255, 60, 60);
+                        textFont = criticalDamageFont;
+                        text = $"{number.Damage}!";
+                        break;
+
+                    case CombatTextType.Experience:
+                        textColor = Color.FromArgb(alpha, 150, 255, 255);
+                        textFont = experienceFont;
+                        text = $"+{number.Damage} XP";
+                        break;
+
+                    default:
+                        textColor = Color.FromArgb(alpha, 255, 255, 255);
+                        textFont = normalDamageFont;
+                        text = number.Damage.ToString();
+                        break;
                 }
 
                 using Brush damageBrush =
                     new SolidBrush(textColor);
 
-                Font damageFont = number.IsCritical
-                    ? criticalDamageFont
-                    : normalDamageFont;
-
-                string text = number.IsCritical
-                    ? $"{number.Damage}!"
-                    : number.Damage.ToString();
-
                 SizeF textSize =
-                    g.MeasureString(text, damageFont);
+                    g.MeasureString(text, textFont);
 
                 g.DrawString(
                     text,
-                    damageFont,
+                    textFont,
                     damageBrush,
                     number.X - textSize.Width / 2f,
                     number.Y
@@ -292,7 +288,7 @@ namespace Vampire_Survivors.Rendering
 
             normalDamageFont.Dispose();
             criticalDamageFont.Dispose();
-            experienceGemBrush.Dispose();
+            experienceFont.Dispose();
             hitFlashAttributes.Dispose();
         }
     }
