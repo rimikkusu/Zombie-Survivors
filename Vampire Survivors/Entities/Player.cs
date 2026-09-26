@@ -15,26 +15,30 @@ namespace Vampire_Survivors.Entities
         public const int InvulnerabilityDurationMs = 750;
         public const int HitFlashDurationMs = 150;
 
-        // Smaller than the full 128x128 sprite so contact
-        // feels fair around the visible character.
-        public const int HitboxSize = 80;
+        // Player art is drawn around the source pivot (32,20); the torso
+        // occupies a small area below it, while most of the sprite is empty.
+        public const int HitboxWidth = 46;
+        public const int HitboxHeight = 36;
 
         public float X { get; set; }
         public float Y { get; set; }
 
         public float Angle { get; set; }
 
-        public int MaxHealth { get; } = 100;
+        public PlayerStats Stats { get; } = new();
+
+        public int MaxHealth => Stats.MaxHealth;
         public int Health { get; private set; } = 100;
 
         public bool IsDead => Health <= 0;
 
         public int Level { get; private set; } = 1;
         public int Experience { get; private set; } = 0;
-        public int ExperienceToNextLevel { get; private set; } = 50;
+        public int ExperienceToNextLevel { get; private set; } = 20;
 
         public int InvulnerabilityRemainingMs { get; private set; }
         public int HitFlashRemainingMs { get; private set; }
+        public float ShootCooldownRemainingMs { get; set; }
 
         public bool IsInvulnerable => InvulnerabilityRemainingMs > 0;
 
@@ -51,10 +55,10 @@ namespace Vampire_Survivors.Entities
             PointF center = GetCenter();
 
             return new RectangleF(
-                center.X - HitboxSize / 2f,
-                center.Y - HitboxSize / 2f,
-                HitboxSize,
-                HitboxSize
+                center.X - HitboxWidth / 2f,
+                center.Y + 5f - HitboxHeight / 2f,
+                HitboxWidth,
+                HitboxHeight
             );
         }
 
@@ -89,36 +93,48 @@ namespace Vampire_Survivors.Entities
             Angle = MathF.Atan2(dy, dx) * 180f / MathF.PI;
         }
 
-        public void Move(float directionX, float directionY, Size clientSize)
+        public void Move(float directionX, float directionY, Size worldSize)
         {
-            X += directionX * Speed;
-            Y += directionY * Speed;
+            float speed = Stats.MoveSpeed;
+            X += directionX * speed;
+            Y += directionY * speed;
 
             X = Math.Clamp(
                 X,
                 0,
-                clientSize.Width - Width
+                worldSize.Width - Width
             );
 
             Y = Math.Clamp(
                 Y,
                 0,
-                clientSize.Height - Height
+                worldSize.Height - Height
             );
         }
 
-        public void TakeDamage(int damage)
+        public void TakeDamage(int rawDamage)
         {
-            if (IsDead)
+            if (IsDead || IsInvulnerable)
                 return;
 
-            if (IsInvulnerable)
-                return;
+            float resistance = Stats.EffectiveDamageResistance;
+            int finalDamage = (int)MathF.Round(rawDamage * (1f - resistance));
+            finalDamage = Math.Max(1, finalDamage);
 
-            Health = Math.Max(0, Health - damage);
+            Health = Math.Max(0, Health - finalDamage);
 
             InvulnerabilityRemainingMs = InvulnerabilityDurationMs;
             HitFlashRemainingMs = HitFlashDurationMs;
+        }
+
+        public int Heal(int amount)
+        {
+            if (IsDead || amount <= 0)
+                return 0;
+
+            int healed = Math.Min(amount, Math.Max(0, MaxHealth - Health));
+            Health += healed;
+            return healed;
         }
 
         public void UpdateDamageTimers(int elapsedMs)
@@ -138,6 +154,14 @@ namespace Vampire_Survivors.Entities
                     HitFlashRemainingMs - elapsedMs
                 );
             }
+
+            if (ShootCooldownRemainingMs > 0)
+            {
+                ShootCooldownRemainingMs = Math.Max(
+                    0,
+                    ShootCooldownRemainingMs - elapsedMs
+                );
+            }
         }
 
         public void Reset(float x, float y)
@@ -145,32 +169,35 @@ namespace Vampire_Survivors.Entities
             X = x;
             Y = y;
 
+            Stats.Reset();
             Health = MaxHealth;
 
             InvulnerabilityRemainingMs = 0;
             HitFlashRemainingMs = 0;
+            ShootCooldownRemainingMs = 0;
 
             Level = 1;
             Experience = 0;
-            ExperienceToNextLevel = 50;
+            ExperienceToNextLevel = 20;
         }
 
-        public void AddExperience(int amount)
+        public int AddExperience(int amount)
         {
-            if (amount <= 0)
-                return;
-
-            if (IsDead)
-                return;
+            if (amount <= 0 || IsDead)
+                return 0;
 
             Experience += amount;
+            int levelsGained = 0;
 
             while (Experience >= ExperienceToNextLevel)
             {
                 Experience -= ExperienceToNextLevel;
                 Level++;
-                ExperienceToNextLevel += 25;
+                ExperienceToNextLevel += 8;
+                levelsGained++;
             }
+
+            return levelsGained;
         }
     }
 }

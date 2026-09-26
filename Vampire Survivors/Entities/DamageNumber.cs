@@ -6,7 +6,8 @@ namespace Vampire_Survivors.Entities
         CriticalDamage,
         KillDamage,
         CriticalKillDamage,
-        Experience
+        Experience,
+        Healing
     }
 
     public class DamageNumber
@@ -14,7 +15,7 @@ namespace Vampire_Survivors.Entities
         public float X { get; set; }
         public float Y { get; set; }
 
-        // Damage dealt for damage types, XP amount for Experience.
+        // Damage dealt, XP awarded, or HP restored depending on Type.
         public int Damage { get; set; }
 
         public CombatTextType Type { get; set; } = CombatTextType.NormalDamage;
