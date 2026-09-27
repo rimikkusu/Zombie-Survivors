@@ -25,7 +25,7 @@ namespace Vampire_Survivors.Entities
 
         public float Angle { get; set; }
 
-        public PlayerStats Stats { get; } = new();
+        public PlayerStats Stats { get; private set; } = new();
 
         public int MaxHealth => Stats.MaxHealth;
         public int Health { get; private set; } = 100;
@@ -39,28 +39,23 @@ namespace Vampire_Survivors.Entities
         public int InvulnerabilityRemainingMs { get; private set; }
         public int HitFlashRemainingMs { get; private set; }
         public float ShootCooldownRemainingMs { get; set; }
+        public int ShotFeedbackRemainingMs { get; private set; }
+
+        public const int ShotFeedbackDurationMs = 64;
 
         public bool IsInvulnerable => InvulnerabilityRemainingMs > 0;
 
-        public PointF GetCenter()
-        {
-            return new PointF(
-                X + Width / 2f,
-                Y + Height / 2f
-            );
-        }
+        public void RegisterShot() => ShotFeedbackRemainingMs = ShotFeedbackDurationMs;
 
-        public RectangleF GetHitbox()
-        {
-            PointF center = GetCenter();
+        public PointF GetCenter() => new(X + Width / 2f, Y + Height / 2f);
 
-            return new RectangleF(
-                center.X - HitboxWidth / 2f,
-                center.Y + 5f - HitboxHeight / 2f,
-                HitboxWidth,
-                HitboxHeight
-            );
-        }
+        public RectangleF GetHitbox() => GetHitbox(X, Y);
+
+        // The collision box covers the player's body, not the empty parts of the sprite.
+        public static RectangleF GetHitbox(float x, float y) => new(
+            x + Width / 2f - HitboxWidth / 2f,
+            y + Height / 2f + 5f - HitboxHeight / 2f,
+            HitboxWidth, HitboxHeight);
 
         public PointF GetGunMuzzlePosition()
         {
@@ -99,21 +94,13 @@ namespace Vampire_Survivors.Entities
             X += directionX * speed;
             Y += directionY * speed;
 
-            X = Math.Clamp(
-                X,
-                0,
-                worldSize.Width - Width
-            );
-
-            Y = Math.Clamp(
-                Y,
-                0,
-                worldSize.Height - Height
-            );
+            X = Math.Clamp(X, 0, worldSize.Width - Width);
+            Y = Math.Clamp(Y, 0, worldSize.Height - Height);
         }
 
         public void TakeDamage(int rawDamage)
         {
+            // A recent hit gives the player a short break from contact damage.
             if (IsDead || IsInvulnerable)
                 return;
 
@@ -139,29 +126,10 @@ namespace Vampire_Survivors.Entities
 
         public void UpdateDamageTimers(int elapsedMs)
         {
-            if (InvulnerabilityRemainingMs > 0)
-            {
-                InvulnerabilityRemainingMs = Math.Max(
-                    0,
-                    InvulnerabilityRemainingMs - elapsedMs
-                );
-            }
-
-            if (HitFlashRemainingMs > 0)
-            {
-                HitFlashRemainingMs = Math.Max(
-                    0,
-                    HitFlashRemainingMs - elapsedMs
-                );
-            }
-
-            if (ShootCooldownRemainingMs > 0)
-            {
-                ShootCooldownRemainingMs = Math.Max(
-                    0,
-                    ShootCooldownRemainingMs - elapsedMs
-                );
-            }
+            InvulnerabilityRemainingMs = Math.Max(0, InvulnerabilityRemainingMs - elapsedMs);
+            HitFlashRemainingMs = Math.Max(0, HitFlashRemainingMs - elapsedMs);
+            ShootCooldownRemainingMs = Math.Max(0, ShootCooldownRemainingMs - elapsedMs);
+            ShotFeedbackRemainingMs = Math.Max(0, ShotFeedbackRemainingMs - elapsedMs);
         }
 
         public void Reset(float x, float y)
@@ -169,12 +137,13 @@ namespace Vampire_Survivors.Entities
             X = x;
             Y = y;
 
-            Stats.Reset();
+            Stats = new PlayerStats();
             Health = MaxHealth;
 
             InvulnerabilityRemainingMs = 0;
             HitFlashRemainingMs = 0;
             ShootCooldownRemainingMs = 0;
+            ShotFeedbackRemainingMs = 0;
 
             Level = 1;
             Experience = 0;
@@ -189,6 +158,7 @@ namespace Vampire_Survivors.Entities
             Experience += amount;
             int levelsGained = 0;
 
+            // Keep leftover XP, even if one reward gains several levels.
             while (Experience >= ExperienceToNextLevel)
             {
                 Experience -= ExperienceToNextLevel;

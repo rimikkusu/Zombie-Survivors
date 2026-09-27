@@ -13,10 +13,10 @@ namespace Vampire_Survivors.Entities
         public const int Size = 64;
         public const int HitboxWidth = 10;
         public const int HitboxHeight = 14;
-        public const float Speed = 14f;
 
         public RectangleF GetHitbox()
         {
+            // The visible bullet image is larger than the part that can hit an enemy.
             return new RectangleF(
                 X + (Size - HitboxWidth) / 2f,
                 Y + (Size - HitboxHeight) / 2f,

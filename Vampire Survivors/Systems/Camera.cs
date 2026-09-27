@@ -6,14 +6,15 @@ namespace Vampire_Survivors.Systems
         public const int WorldHeight = 3500;
     }
 
-    /// <summary>Camera position is the world-space coordinate at the viewport's top-left.</summary>
+    // X and Y are the top-left corner of the world currently visible on screen.
     public sealed class Camera
     {
         public float X { get; private set; }
-        public float Y { get; private set; }                                 
+        public float Y { get; private set; }
 
         public void Follow(PointF targetCenter, Size viewportSize)
         {
+            // Keep the player near the center without showing anything past the map edge.
             float maxX = Math.Max(0, GameWorld.WorldWidth - viewportSize.Width);
             float maxY = Math.Max(0, GameWorld.WorldHeight - viewportSize.Height);
 
@@ -23,6 +24,7 @@ namespace Vampire_Survivors.Systems
 
         public PointF ScreenToWorld(PointF screenPosition)
         {
+            // Mouse clicks use screen coordinates; gameplay uses world coordinates.
             return new PointF(screenPosition.X + X, screenPosition.Y + Y);
         }
 
@@ -31,9 +33,5 @@ namespace Vampire_Survivors.Systems
             return new RectangleF(X, Y, viewportSize.Width, viewportSize.Height);
         }
 
-        public void Reset(PointF targetCenter, Size viewportSize)
-        {
-            Follow(targetCenter, viewportSize);
-        }
     }
 }

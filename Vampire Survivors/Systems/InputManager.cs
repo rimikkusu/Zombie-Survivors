@@ -9,57 +9,41 @@ namespace Vampire_Survivors.Systems
         public bool MoveLeft { get; private set; }
         public bool MoveRight { get; private set; }
 
-        public float MouseX { get; private set; }
-        public float MouseY { get; private set; }
-        public bool IsMouseDown { get; set; }
-
         public bool KeyDown(Keys key)
         {
-            bool isNewPress = keysDown.Add(key);
-
-            if (key == Keys.W)
-                MoveUp = true;
-
-            if (key == Keys.S)
-                MoveDown = true;
-
-            if (key == Keys.A)
-                MoveLeft = true;
-
-            if (key == Keys.D)
-                MoveRight = true;
-
-            return isNewPress;
+            SetMovement(key, true);
+            return keysDown.Add(key);
         }
 
         public void KeyUp(Keys key)
         {
             keysDown.Remove(key);
-
-            if (key == Keys.W)
-                MoveUp = false;
-
-            if (key == Keys.S)
-                MoveDown = false;
-
-            if (key == Keys.A)
-                MoveLeft = false;
-
-            if (key == Keys.D)
-                MoveRight = false;
+            SetMovement(key, false);
         }
 
-        public void SetMouse(float x, float y)
+        private void SetMovement(Keys key, bool pressed)
         {
-            MouseX = x;
-            MouseY = y;
+            switch (key)
+            {
+                case Keys.W:
+                    MoveUp = pressed;
+                    break;
+                case Keys.S:
+                    MoveDown = pressed;
+                    break;
+                case Keys.A:
+                    MoveLeft = pressed;
+                    break;
+                case Keys.D:
+                    MoveRight = pressed;
+                    break;
+            }
         }
 
         public void Reset()
         {
             keysDown.Clear();
             ResetMovement();
-            IsMouseDown = false;
         }
 
         public void ResetMovement()
@@ -90,23 +74,20 @@ namespace Vampire_Survivors.Systems
 
         public PointF GetMovementDirection()
         {
-            float directionX = 0;
-            float directionY = 0;
-
-            if (MoveUp)
-                directionY -= 1;
-
-            if (MoveDown)
-                directionY += 1;
-
-            if (MoveLeft)
-                directionX -= 1;
-
+            float directionX = 0f;
+            float directionY = 0f;
             if (MoveRight)
-                directionX += 1;
+                directionX++;
+            if (MoveLeft)
+                directionX--;
+            if (MoveDown)
+                directionY++;
+            if (MoveUp)
+                directionY--;
 
             if (directionX != 0 && directionY != 0)
             {
+                // Diagonal movement is shortened so it is not faster than straight movement.
                 const float diagonal = 0.7071f;
 
                 directionX *= diagonal;

@@ -4,6 +4,7 @@ namespace Vampire_Survivors.Systems
 {
     public class EnemyManager
     {
+        private float[] movementThisFrame = [];
         private const float MinimumPlayerSpawnDistance = 300f;
         private static readonly float[] ForcefieldPushAngles =
         {
@@ -22,24 +23,14 @@ namespace Vampire_Survivors.Systems
             PointF playerCenter,
             Size worldSize,
             float forcefieldRadius = 0f,
-            RectangleF? playerHitbox = null)
+            RectangleF? playerHitbox = null,
+            int elapsedMs = 16)
         {
+            // Move enemies first, then separate any bodies that overlap.
             foreach (Enemy enemy in enemies)
             {
-                PointF center = enemy.GetCenter();
-                float dx = playerCenter.X - center.X;
-                float dy = playerCenter.Y - center.Y;
-                float distance = MathF.Sqrt(dx * dx + dy * dy);
-
-                enemy.Angle = MathF.Atan2(dy, dx) * 180f / MathF.PI;
-
-                if (distance > 0.001f)
-                {
-                    enemy.X += dx / distance * enemy.Stats.Speed;
-                    enemy.Y += dy / distance * enemy.Stats.Speed;
-                }
-
-                ClampToWorld(enemy, worldSize);
+                EnemyBehavior.Update(enemy, playerCenter, elapsedMs);
+                enemy.ClampToWorld(worldSize);
             }
 
             SeparateOverlappingEnemies(enemies, worldSize);
@@ -57,6 +48,8 @@ namespace Vampire_Survivors.Systems
             {
                 if (enemy.HitFlashTimer > 0)
                     enemy.HitFlashTimer--;
+                if (enemy.HitFlashTimer == 0)
+                    enemy.CriticalHitFlash = false;
             }
         }
 
@@ -76,39 +69,32 @@ namespace Vampire_Survivors.Systems
             if (worldSize.Width <= size || worldSize.Height <= size)
                 return false;
 
-            for (int attempt = 0; attempt < 80; attempt++)
+            // After 80 attempts, relax view padding and enemy spacing, but keep player clearance.
+            for (int attempt = 0; attempt < 280; attempt++)
             {
                 float x = Random.Shared.Next(0, worldSize.Width - size + 1);
                 float y = Random.Shared.Next(0, worldSize.Height - size + 1);
                 PointF candidateCenter = new(x + size / 2f, y + size / 2f);
 
-                if (IsInsideExpandedView(candidateCenter, visibleWorldBounds, Random.Shared.Next(150, 301)))
+                if (attempt < 80 && IsInsideExpandedView(
+                    candidateCenter, visibleWorldBounds, Random.Shared.Next(150, 301)))
                     continue;
-
                 if (Distance(candidateCenter, playerCenter) < MinimumPlayerSpawnDistance)
                     continue;
 
-                if (enemies.Any(existing => Distance(candidateCenter, existing.GetCenter()) < 100f))
-                    continue;
-
-                enemies.Add(new Enemy(type, playerLevel, wave)
+                bool crowded = false;
+                if (attempt < 80)
                 {
-                    X = x,
-                    Y = y
-                });
-
-                return true;
-            }
-
-            // If the view-padding test cannot find room, keep the spawn finite
-            // and outside the immediate player danger zone.
-            for (int attempt = 0; attempt < 200; attempt++)
-            {
-                float x = Random.Shared.Next(0, worldSize.Width - size + 1);
-                float y = Random.Shared.Next(0, worldSize.Height - size + 1);
-                PointF candidateCenter = new(x + size / 2f, y + size / 2f);
-
-                if (Distance(candidateCenter, playerCenter) < MinimumPlayerSpawnDistance)
+                    foreach (Enemy existing in enemies)
+                    {
+                        if (Distance(candidateCenter, existing.GetCenter()) < 100f)
+                        {
+                            crowded = true;
+                            break;
+                        }
+                    }
+                }
+                if (crowded)
                     continue;
 
                 enemies.Add(new Enemy(type, playerLevel, wave) { X = x, Y = y });
@@ -180,6 +166,7 @@ namespace Vampire_Survivors.Systems
 
                 float baseAngle = MathF.Atan2(dy, dx);
                 bool movedOutside = false;
+                // Try nearby directions when the map edge blocks a straight push.
                 foreach (float angleOffset in ForcefieldPushAngles)
                 {
                     if (TryPlaceOutsideForcefield(enemy, center, radius, baseAngle + angleOffset, worldSize))
@@ -194,7 +181,7 @@ namespace Vampire_Survivors.Systems
                     float push = minimumCenterDistance - distance;
                     enemy.X += unitX * push;
                     enemy.Y += unitY * push;
-                    ClampToWorld(enemy, worldSize);
+                    enemy.ClampToWorld(worldSize);
                 }
             }
         }
@@ -253,7 +240,7 @@ namespace Vampire_Survivors.Systems
 
             enemy.X += dx / length * distance;
             enemy.Y += dy / length * distance;
-            ClampToWorld(enemy, worldSize);
+            enemy.ClampToWorld(worldSize);
         }
 
         private static bool IsInsideExpandedView(PointF point, RectangleF view, float padding)
@@ -269,44 +256,56 @@ namespace Vampire_Survivors.Systems
             return MathF.Sqrt(dx * dx + dy * dy);
         }
 
-        private static void SeparateOverlappingEnemies(List<Enemy> enemies, Size worldSize)
+        private void SeparateOverlappingEnemies(List<Enemy> enemies, Size worldSize)
         {
+            // Limit how far one enemy can be pushed in a crowded frame.
+            if (movementThisFrame.Length < enemies.Count)
+                Array.Resize(ref movementThisFrame, Math.Max(enemies.Count, movementThisFrame.Length * 2));
+            Array.Clear(movementThisFrame, 0, enemies.Count);
             for (int i = 0; i < enemies.Count; i++)
             {
                 for (int j = i + 1; j < enemies.Count; j++)
                 {
                     Enemy first = enemies[i];
                     Enemy second = enemies[j];
-                    PointF a = first.GetCenter();
-                    PointF b = second.GetCenter();
-                    float dx = b.X - a.X;
-                    float dy = b.Y - a.Y;
-                    float distance = MathF.Sqrt(dx * dx + dy * dy);
-                    float separationDistance = Math.Max(
-                        42f,
-                        (first.Stats.HitboxWidth + second.Stats.HitboxWidth) / 2f + 8f);
-
-                    if (distance >= separationDistance)
+                    RectangleF firstHitbox = first.GetHitbox();
+                    RectangleF secondHitbox = second.GetHitbox();
+                    if (!firstHitbox.IntersectsWith(secondHitbox))
                         continue;
 
-                    if (distance < 0.001f)
+                    float overlapX = Math.Min(firstHitbox.Right, secondHitbox.Right) -
+                        Math.Max(firstHitbox.Left, secondHitbox.Left);
+                    float overlapY = Math.Min(firstHitbox.Bottom, secondHitbox.Bottom) -
+                        Math.Max(firstHitbox.Top, secondHitbox.Top);
+                    float shallowOverlap = Math.Min(overlapX, overlapY);
+                    if (shallowOverlap <= 6f)
+                        continue;
+
+                    float push = Math.Min((shallowOverlap - 6f) / 2f,
+                        Math.Min(3f, Math.Min(6f - movementThisFrame[i], 6f - movementThisFrame[j])));
+                    if (push <= 0f)
+                        continue;
+
+                    if (overlapX <= overlapY)
                     {
-                        dx = 1f;
-                        dy = 0f;
-                        distance = 1f;
+                        float sign = firstHitbox.Left + firstHitbox.Width / 2f <=
+                            secondHitbox.Left + secondHitbox.Width / 2f ? 1f : -1f;
+                        first.X -= sign * push;
+                        second.X += sign * push;
+                    }
+                    else
+                    {
+                        float sign = firstHitbox.Top + firstHitbox.Height / 2f <=
+                            secondHitbox.Top + secondHitbox.Height / 2f ? 1f : -1f;
+                        first.Y -= sign * push;
+                        second.Y += sign * push;
                     }
 
-                    float push = (separationDistance - distance) / 2f;
-                    float pushX = dx / distance * push;
-                    float pushY = dy / distance * push;
+                    movementThisFrame[i] += push;
+                    movementThisFrame[j] += push;
 
-                    first.X -= pushX;
-                    first.Y -= pushY;
-                    second.X += pushX;
-                    second.Y += pushY;
-
-                    ClampToWorld(first, worldSize);
-                    ClampToWorld(second, worldSize);
+                    first.ClampToWorld(worldSize);
+                    second.ClampToWorld(worldSize);
                 }
             }
         }
@@ -347,14 +346,9 @@ namespace Vampire_Survivors.Systems
                     enemy.Y += direction * Math.Max(0f, overlapY - 1f);
                 }
 
-                ClampToWorld(enemy, worldSize);
+                enemy.ClampToWorld(worldSize);
             }
         }
 
-        private static void ClampToWorld(Enemy enemy, Size worldSize)
-        {
-            enemy.X = Math.Clamp(enemy.X, 0, Math.Max(0, worldSize.Width - enemy.RenderSize));
-            enemy.Y = Math.Clamp(enemy.Y, 0, Math.Max(0, worldSize.Height - enemy.RenderSize));
-        }
     }
 }

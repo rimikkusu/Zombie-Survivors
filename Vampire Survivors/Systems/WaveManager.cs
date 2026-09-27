@@ -18,26 +18,24 @@ namespace Vampire_Survivors.Systems
             return Math.Max(0, EnemiesRequired - EnemiesSpawned + livingEnemies);
         }
 
-        /// <returns>True if visible wave state changed.</returns>
-        public bool Update(int elapsedMs, int livingEnemies, Func<int, int, int, bool> spawnEnemy)
+        // Count spawns here; GameSession tells us where a new enemy can appear.
+        public bool Update(int elapsedMs, int livingEnemies, Func<int, int, bool> spawnEnemy)
         {
             if (!IsWaveActive)
             {
+                // The short break finishes before the next wave starts.
                 intermissionRemainingMs = Math.Max(0, intermissionRemainingMs - elapsedMs);
                 if (intermissionRemainingMs > 0)
                     return false;
 
-                CurrentWave++;
-                EnemiesSpawned = 0;
-                spawnDelayRemainingMs = GetNextSpawnDelay();
-                IsWaveActive = true;
+                AdvanceToNextWave();
                 return true;
             }
 
             if (EnemiesSpawned < EnemiesRequired)
             {
                 spawnDelayRemainingMs -= elapsedMs;
-                if (spawnDelayRemainingMs <= 0 && spawnEnemy(CurrentWave, EnemiesSpawned, EnemiesRequired))
+                if (spawnDelayRemainingMs <= 0 && spawnEnemy(CurrentWave, EnemiesSpawned))
                 {
                     EnemiesSpawned++;
                     spawnDelayRemainingMs = GetNextSpawnDelay();
@@ -49,6 +47,7 @@ namespace Vampire_Survivors.Systems
 
             if (livingEnemies == 0)
             {
+                // All required enemies spawned and none remain alive.
                 IsWaveActive = false;
                 intermissionRemainingMs = IntermissionDurationMs;
                 return true;
@@ -57,9 +56,13 @@ namespace Vampire_Survivors.Systems
             return false;
         }
 
-        public void Reset()
+        public void Reset() => StartWave(1);
+
+        public void AdvanceToNextWave() => StartWave(CurrentWave + 1);
+
+        private void StartWave(int wave)
         {
-            CurrentWave = 1;
+            CurrentWave = wave;
             EnemiesSpawned = 0;
             spawnDelayRemainingMs = GetNextSpawnDelay();
             intermissionRemainingMs = 0;
@@ -72,15 +75,6 @@ namespace Vampire_Survivors.Systems
                 return;
 
             EnemiesSpawned = EnemiesRequired;
-        }
-
-        public void AdvanceToNextWave()
-        {
-            CurrentWave++;
-            EnemiesSpawned = 0;
-            spawnDelayRemainingMs = GetNextSpawnDelay();
-            intermissionRemainingMs = 0;
-            IsWaveActive = true;
         }
 
         private static int GetNextSpawnDelay()
