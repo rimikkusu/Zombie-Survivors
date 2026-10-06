@@ -176,6 +176,8 @@ namespace Vampire_Survivors
 
         private void RestartGame()
         {
+            // The form may finish maximizing after the session was created.
+            session.Resize(ClientSize);
             session.Reset();
             hud.ResetActiveAbilityFeedback();
             screens.SetPlaying();
