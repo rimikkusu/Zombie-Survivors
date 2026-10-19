@@ -30,25 +30,18 @@ namespace Vampire_Survivors.Systems
                 return;
             dx /= length;
             dy /= length;
-            int shots = game.Abilities.IsActive(MajorAbilityType.Multishot) ? 2 : 1;
-            for (int shot = 0; shot < shots; shot++)
-            {
-                float offset = shots == 2 ? (-2f + shot * 4f) * MathF.PI / 180f : 0f;
-                float directionX = dx * MathF.Cos(offset) - dy * MathF.Sin(offset);
-                float directionY = dx * MathF.Sin(offset) + dy * MathF.Cos(offset);
-                // Check the body-to-muzzle path so a touching enemy cannot be skipped.
-                Enemy? closeEnemy = FindHit(center, muzzle, true);
-                if (closeEnemy is not null)
-                    ApplyBulletHit(closeEnemy, directionX, directionY);
-                else
-                    game.Bullets.Add(new Bullet
-                    {
-                        X = muzzle.X - Bullet.Size / 2f, Y = muzzle.Y - Bullet.Size / 2f,
-                        VelocityX = directionX * player.Stats.BulletSpeed,
-                        VelocityY = directionY * player.Stats.BulletSpeed,
-                        Angle = MathF.Atan2(directionY, directionX) * 180f / MathF.PI
-                    });
-            }
+            // Check the body-to-muzzle path so a touching enemy cannot be skipped.
+            Enemy? closeEnemy = FindHit(center, muzzle, true);
+            if (closeEnemy is not null)
+                ApplyBulletHit(closeEnemy, dx, dy);
+            else
+                game.Bullets.Add(new Bullet
+                {
+                    X = muzzle.X - Bullet.Size / 2f, Y = muzzle.Y - Bullet.Size / 2f,
+                    VelocityX = dx * player.Stats.BulletSpeed,
+                    VelocityY = dy * player.Stats.BulletSpeed,
+                    Angle = MathF.Atan2(dy, dx) * 180f / MathF.PI
+                });
             player.ShootCooldownRemainingMs = player.Stats.FireCooldownMs;
             player.RegisterShot();
         }
@@ -157,10 +150,10 @@ namespace Vampire_Survivors.Systems
             }
         }
 
-        public int ApplyEnemyDamage(Enemy enemy, int damage, bool critical)
+        private void ApplyEnemyDamage(Enemy enemy, int damage, bool critical)
         {
             if (enemy.Health <= 0)
-                return 0;
+                return;
             enemy.Health -= damage;
             enemy.HitFlashTimer = critical ? 9 : 7;
             enemy.CriticalHitFlash = critical;
@@ -174,7 +167,7 @@ namespace Vampire_Survivors.Systems
                 X = center.X, Y = enemy.Y, Damage = damage, Type = type
             });
             if (!killed)
-                return 0;
+                return;
 
             SpawnDeathBurst(center);
             int xp = enemy.RollExperienceReward();
@@ -186,7 +179,6 @@ namespace Vampire_Survivors.Systems
                 X = center.X, Y = enemy.Y + 30f, Damage = xp,
                 Type = CombatTextType.Experience, DelayRemainingMs = XpTextDelayMs
             });
-            return xp;
         }
 
         private void SpawnDeathBurst(PointF center)
@@ -226,8 +218,7 @@ namespace Vampire_Survivors.Systems
             }
             Player player = game.Player;
             player.UpdateDamageTimers(elapsedMs);
-            if (player.IsDead || player.IsInvulnerable || preventDamage ||
-                game.Abilities.IsActive(MajorAbilityType.Forcefield))
+            if (player.IsDead || player.IsInvulnerable || preventDamage)
                 return;
             RectangleF playerHitbox = player.GetHitbox();
             foreach (Enemy enemy in game.Enemies)

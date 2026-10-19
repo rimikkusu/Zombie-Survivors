@@ -20,7 +20,6 @@ namespace Vampire_Survivors.Rendering
         private readonly ImageAttributes hitFlashAttributes = CreateTint(1f, 0.25f, 0.25f, 0.45f, 0f, 0f);
         private readonly ImageAttributes criticalFlashAttributes = CreateTint(1.2f, 0.3f, 0.25f, 0.65f, 0.05f, 0f);
         private readonly Pen bandageOutline = new(Color.FromArgb(255, 35, 35, 35), 2f);
-        private readonly Pen forcefieldPen = new(Color.FromArgb(190, 90, 210, 255), 3f);
         private readonly SolidBrush bandageWhite = new(Color.FromArgb(245, 245, 238));
         private readonly SolidBrush bandageRed = new(Color.FromArgb(205, 45, 50));
         private readonly SolidBrush muzzleGlow = new(Color.FromArgb(180, 255, 185, 40));
@@ -54,8 +53,6 @@ namespace Vampire_Survivors.Rendering
             DrawEnemies(g, session.Enemies);
             DrawBullets(g, session.Bullets);
             DrawPlayer(g, session.Player);
-            if (session.Abilities.IsActive(MajorAbilityType.Forcefield))
-                DrawForcefield(g, session.Player);
             DrawDeathParticles(g, session.DeathParticles);
             DrawDamageNumbers(g, session.DamageNumbers);
         }
@@ -170,18 +167,6 @@ namespace Vampire_Survivors.Rendering
             }
         }
 
-        private void DrawForcefield(Graphics g, Player player)
-        {
-            PointF center = player.GetCenter();
-            float diameter = AbilitySystem.ForcefieldRadius * 2f;
-            g.DrawEllipse(
-                forcefieldPen,
-                center.X - AbilitySystem.ForcefieldRadius,
-                center.Y - AbilitySystem.ForcefieldRadius,
-                diameter,
-                diameter);
-        }
-
         private void DrawDamageNumbers(Graphics g, List<DamageNumber> damageNumbers)
         {
             foreach (DamageNumber number in damageNumbers)
@@ -236,7 +221,6 @@ namespace Vampire_Survivors.Rendering
             hitFlashAttributes.Dispose();
             criticalFlashAttributes.Dispose();
             bandageOutline.Dispose();
-            forcefieldPen.Dispose();
             bandageWhite.Dispose();
             bandageRed.Dispose();
             muzzleGlow.Dispose();

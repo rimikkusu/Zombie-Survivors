@@ -185,12 +185,10 @@ namespace Vampire_Survivors.Entities
         public int BaseDamageMin { get; set; } = 10;
         public int BaseDamageMax { get; set; } = 14;
         public float DamageBonusPercent { get; set; } = 0f;
-        public float TemporaryDamageBonusPercent { get; set; } = 0f;
 
         // Move speed: Base 6.0, +3% additive per SpeedBoost stack
         public float BaseMoveSpeed { get; set; } = 6f;
         public float MoveSpeedBonusPercent { get; set; } = 0f;
-        public float TemporaryMoveSpeedBonusPercent { get; set; } = 0f;
 
         // Crit chance: Base 2.5%, +1 percentage point additive per CriticalTraining stack
         public float BaseCritChance { get; set; } = 0.025f;
@@ -202,7 +200,6 @@ namespace Vampire_Survivors.Entities
 
         // Damage resistance: Base 0%, +3 percentage points additive per Durability stack (capped at 60%)
         public float DamageResistancePercent { get; set; } = 0f;
-        public float TemporaryDamageResistancePercent { get; set; } = 0f;
 
         // Health: Base 100, +10 additive per HealthBoost stack
         public int BaseMaxHealth { get; set; } = 100;
@@ -214,21 +211,19 @@ namespace Vampire_Survivors.Entities
 
         public int MaxHealth => BaseMaxHealth + BonusMaxHealth;
 
-        public float MoveSpeed => BaseMoveSpeed * (1f + MoveSpeedBonusPercent + TemporaryMoveSpeedBonusPercent);
+        public float MoveSpeed => BaseMoveSpeed * (1f + MoveSpeedBonusPercent);
 
         public float BulletSpeed => BaseBulletSpeed * (1f + BulletSpeedBonusPercent);
 
         public float EffectiveCritChance => Math.Min(BaseCritChance + CritChanceBonus, MaxCritChance);
 
-        public float EffectiveDamageResistance => Math.Min(
-            DamageResistancePercent + TemporaryDamageResistancePercent,
-            MaxDamageResistance);
+        public float EffectiveDamageResistance => Math.Min(DamageResistancePercent, MaxDamageResistance);
 
         public float FireCooldownMs => BaseFireCooldownMs / (1f + FireRateBonusPercent);
 
         public int CalculateDamage(int rawBaseDamage)
         {
-            float finalDamage = rawBaseDamage * (1f + DamageBonusPercent + TemporaryDamageBonusPercent);
+            float finalDamage = rawBaseDamage * (1f + DamageBonusPercent);
             return Math.Max(1, (int)MathF.Round(finalDamage));
         }
 

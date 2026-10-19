@@ -16,7 +16,6 @@ namespace Vampire_Survivors.Systems
         public CombatSystem Combat { get; }
         public EnemyManager EnemyManager { get; } = new();
         public UpgradeSystem Upgrades { get; } = new();
-        public AbilitySystem Abilities { get; } = new();
         public WaveManager Waves { get; } = new();
         public Queue<int> PendingLevels { get; } = new();
 
@@ -55,7 +54,6 @@ namespace Vampire_Survivors.Systems
             Waves.Reset();
             Player.Reset(Math.Max(0, (ArenaSize.Width - Player.Width) / 2f),
                 Math.Max(0, (ArenaSize.Height - Player.Height) / 2f));
-            Abilities.Reset(Player);
             Enemies.Clear();
             Bandages.Clear();
             Bullets.Clear();
@@ -63,7 +61,7 @@ namespace Vampire_Survivors.Systems
             DeathParticles.Clear();
         }
 
-        public void Update(Point cursor, PointF direction, bool noAbilityCooldowns, bool infiniteHealth)
+        public void Update(Point cursor, PointF direction, bool infiniteHealth)
         {
             if (Player.IsDead)
                 return;
@@ -71,14 +69,10 @@ namespace Vampire_Survivors.Systems
             int previousLevel = Player.Level;
 
             // The arena and the mouse both use the form's client coordinates.
-            Abilities.Update(16, Player, noAbilityCooldowns);
             Player.Move(direction.X, direction.Y, ArenaSize);
             Player.UpdateAngle(cursor.X, cursor.Y);
 
-            float forcefieldRadius = Abilities.IsActive(MajorAbilityType.Forcefield)
-                ? AbilitySystem.ForcefieldRadius : 0f;
-            EnemyManager.Update(Enemies, Player.GetCenter(), ArenaSize, forcefieldRadius,
-                Player.GetHitbox(), 16);
+            EnemyManager.Update(Enemies, Player.GetCenter(), ArenaSize, Player.GetHitbox(), 16);
             CollectBandages();
 
             Combat.UpdateBullets();
@@ -96,84 +90,6 @@ namespace Vampire_Survivors.Systems
             int previousLevel = Player.Level;
             Combat.Shoot(cursor);
             QueueGainedLevels(previousLevel);
-        }
-
-        public MajorAbilityType? ActivateAbility(int slot, PointF cursorScreen, bool noCooldowns)
-        {
-            MajorAbilityType? selected = Abilities.GetAbilityAtSlot(slot);
-            if (selected is not MajorAbilityType ability ||
-                !Abilities.TryActivate(ability, Player, noCooldowns))
-                return null;
-
-            switch (ability)
-            {
-                case MajorAbilityType.Teleportation:
-                    TeleportTowardCursor(cursorScreen);
-                    break;
-                case MajorAbilityType.Forcefield:
-                    EnemyManager.PushEnemiesOutsideRadius(Enemies, Player.GetCenter(),
-                        AbilitySystem.ForcefieldRadius, ArenaSize);
-                    break;
-                case MajorAbilityType.Shockwave:
-                    int previousLevel = Player.Level;
-                    if (ApplyShockwave() > 0)
-                        QueueGainedLevels(previousLevel);
-                    break;
-            }
-            return ability;
-        }
-
-        private void TeleportTowardCursor(PointF cursor)
-        {
-            PointF center = Player.GetCenter();
-            float dx = cursor.X - center.X;
-            float dy = cursor.Y - center.Y;
-            float distance = MathF.Sqrt(dx * dx + dy * dy);
-            float fraction = distance > 450f ? 450f / distance : 1f;
-            float targetX = Math.Clamp(center.X + dx * fraction - Player.Width / 2f,
-                0, Math.Max(0, ArenaSize.Width - Player.Width));
-            float targetY = Math.Clamp(center.Y + dy * fraction - Player.Height / 2f,
-                0, Math.Max(0, ArenaSize.Height - Player.Height));
-            // If the destination is occupied, try shorter jumps along the same line.
-            for (int step = 10; step > 0; step--)
-            {
-                float x = Player.X + (targetX - Player.X) * step / 10f;
-                float y = Player.Y + (targetY - Player.Y) * step / 10f;
-                bool blocked = false;
-                foreach (Enemy enemy in Enemies)
-                {
-                    if (Player.GetHitbox(x, y).IntersectsWith(enemy.GetHitbox()))
-                    {
-                        blocked = true;
-                        break;
-                    }
-                }
-                if (blocked)
-                    continue;
-                Player.X = x;
-                Player.Y = y;
-                break;
-            }
-            Player.UpdateAngle(cursor.X, cursor.Y);
-        }
-
-        private int ApplyShockwave()
-        {
-            PointF center = Player.GetCenter();
-            int xpAwarded = 0;
-            // Go backwards because a shockwave can remove enemies it kills.
-            for (int i = Enemies.Count - 1; i >= 0; i--)
-            {
-                Enemy enemy = Enemies[i];
-                if (EnemyManager.Distance(center, enemy.GetCenter()) > 300f)
-                    continue;
-
-                EnemyManager.PushEnemyAway(enemy, center, 180f, ArenaSize);
-                xpAwarded += Combat.ApplyEnemyDamage(enemy, 20, false);
-                if (enemy.Health <= 0)
-                    Enemies.RemoveAt(i);
-            }
-            return xpAwarded;
         }
 
         private void CollectBandages()

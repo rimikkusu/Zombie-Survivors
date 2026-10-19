@@ -130,7 +130,7 @@ namespace Vampire_Survivors.Systems
     public class EnemyManager
     {
         public void Update(List<Enemy> enemies, PointF playerCenter, Size arenaSize,
-            float forcefieldRadius, RectangleF playerHitbox, int elapsedMs)
+            RectangleF playerHitbox, int elapsedMs)
         {
             // All three types chase directly; their stats make them feel different.
             foreach (Enemy enemy in enemies)
@@ -156,8 +156,6 @@ namespace Vampire_Survivors.Systems
             SeparateEnemies(enemies, arenaSize);
             foreach (Enemy enemy in enemies)
                 SeparateFromPlayer(enemy, playerHitbox, arenaSize);
-            if (forcefieldRadius > 0)
-                PushEnemiesOutsideRadius(enemies, playerCenter, forcefieldRadius, arenaSize);
         }
 
         public bool TrySpawnEnemy(List<Enemy> enemies, Size arenaSize, PointF playerCenter,
@@ -267,50 +265,6 @@ namespace Vampire_Survivors.Systems
             }
             enemy.X = position.X;
             enemy.Y = position.Y;
-        }
-
-        public void PushEnemiesOutsideRadius(IReadOnlyList<Enemy> enemies, PointF center,
-            float radius, Size arenaSize)
-        {
-            foreach (Enemy enemy in enemies)
-            {
-                PointF bodyCenter = enemy.GetCenter();
-                float reach = MathF.Sqrt(enemy.Stats.HitboxWidth * enemy.Stats.HitboxWidth +
-                    enemy.Stats.HitboxHeight * enemy.Stats.HitboxHeight) / 2f;
-                float targetDistance = radius + reach;
-                if (Distance(center, bodyCenter) >= targetDistance)
-                    continue;
-                float angle = MathF.Atan2(bodyCenter.Y - center.Y, bodyCenter.X - center.X);
-                // At an arena edge, use the first direction with room for the whole body.
-                for (int direction = 0; direction < 8; direction++)
-                {
-                    float candidateAngle = angle + direction * MathF.PI / 4f;
-                    float x = center.X + MathF.Cos(candidateAngle) * targetDistance - enemy.RenderSize / 2f;
-                    float y = center.Y + MathF.Sin(candidateAngle) * targetDistance - enemy.RenderSize / 2f;
-                    if (x < 0 || y < 0 || x > arenaSize.Width - enemy.RenderSize ||
-                        y > arenaSize.Height - enemy.RenderSize)
-                        continue;
-                    enemy.X = x;
-                    enemy.Y = y;
-                    break;
-                }
-            }
-        }
-
-        public void PushEnemyAway(Enemy enemy, PointF center, float distance, Size arenaSize)
-        {
-            PointF body = enemy.GetCenter();
-            float dx = body.X - center.X;
-            float dy = body.Y - center.Y;
-            float length = MathF.Sqrt(dx * dx + dy * dy);
-            if (length < 0.001f)
-            {
-                dx = 1f;
-                length = 1f;
-            }
-            enemy.X += dx / length * distance;
-            enemy.Y += dy / length * distance;
-            enemy.ClampToArena(arenaSize);
         }
 
         public static float Distance(PointF first, PointF second)

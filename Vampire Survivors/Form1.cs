@@ -24,7 +24,7 @@ namespace Vampire_Survivors
             DoubleBuffered = true;
 
             Control[] foregroundControls = [pnlHealthBackground, lblHealth, lblLevel, pnlXpBackground,
-                lblXp, lblWave, pnlActiveAbility, lblUpgradesTitle, lstUpgrades, btnPause, pnlDebug];
+                lblXp, lblWave, lblUpgradesTitle, lstUpgrades, btnPause, pnlDebug];
             foreach (Control control in foregroundControls)
                 control.BringToFront();
 
@@ -32,7 +32,7 @@ namespace Vampire_Survivors
             renderer = new GameRenderer();
             hud = new HudController(session, lblHealth, pnlHealthBackground, pnlHealthFill,
                 lblLevel, lblXp, pnlXpBackground, pnlXpFill, lblWave, lblUpgradesTitle,
-                lstUpgrades, btnPause, pnlActiveAbility, lblActiveAbility, pnlDebug);
+                lstUpgrades, btnPause, pnlDebug);
             screens = new ScreenController(this, hud, pnlMainMenu, pnlMenuContent, pnlSettings,
                 pnlSettingsContent, pnlGameOver, pnlLevelUp, pnlPause);
             display = new DisplayManager(this, cmbDisplayMode);
@@ -40,8 +40,8 @@ namespace Vampire_Survivors
                 btnUpgrade1, btnUpgrade2, btnUpgrade3);
             debug = new DebugController(session, hud, levels, screens, pnlDebug, lblDebugInfo,
                 chkInfiniteHealth, Invalidate);
-            gameInput = new GameInputController(this, session, screens, hud, levels, debug,
-                chkNoAbilityCooldowns, PauseGame, ResumeGame);
+            gameInput = new GameInputController(session, screens, hud, levels, debug,
+                PauseGame, ResumeGame);
             hud.UpdateHealth();
             hud.UpdateExperience();
 
@@ -83,8 +83,8 @@ namespace Vampire_Survivors
             if (!session.Player.IsDead)
             {
                 session.Update(PointToClient(Cursor.Position),
-                    gameInput.GetMovementDirection(), chkNoAbilityCooldowns.Checked, chkInfiniteHealth.Checked);
-                bool died = hud.RefreshFrame(16);
+                    gameInput.GetMovementDirection(), chkInfiniteHealth.Checked);
+                bool died = hud.RefreshFrame();
                 if (session.PendingLevels.Count > 0)
                     levels.ShowNext();
                 if (died)
@@ -165,7 +165,6 @@ namespace Vampire_Survivors
             session.Resize(ClientSize);
             session.Reset();
             gameInput.Reset();
-            hud.ResetActiveAbilityFeedback();
             screens.SetPlaying();
             hud.UpdateHealth();
             hud.UpdateExperience();

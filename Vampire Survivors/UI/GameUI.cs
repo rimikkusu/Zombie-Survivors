@@ -14,20 +14,15 @@ namespace Vampire_Survivors.UI
         private readonly Panel xpFill;
         private readonly Label waveLabel;
         private readonly ListBox upgradesList;
-        private readonly Panel activeAbilityPanel;
-        private readonly Label activeAbilityLabel;
         private readonly Panel debugPanel;
         private readonly Button pauseButton;
 
-        private (int Upgrades, int Abilities)? lastUpgrades;
-        private (int Version, string Instant)? lastAbilityFeedback;
-        private int instantFeedbackRemainingMs;
-        private string instantFeedbackText = string.Empty;
+        private int lastUpgradeVersion = -1;
 
         public HudController(GameSession session, Label healthLabel, Panel healthBackground,
             Panel healthFill, Label levelLabel, Label xpLabel, Panel xpBackground,
             Panel xpFill, Label waveLabel, Label upgradesTitle, ListBox upgradesList,
-            Button pauseButton, Panel activeAbilityPanel, Label activeAbilityLabel, Panel debugPanel)
+            Button pauseButton, Panel debugPanel)
         {
             this.session = session;
             this.healthLabel = healthLabel;
@@ -37,8 +32,6 @@ namespace Vampire_Survivors.UI
             this.xpFill = xpFill;
             this.waveLabel = waveLabel;
             this.upgradesList = upgradesList;
-            this.activeAbilityPanel = activeAbilityPanel;
-            this.activeAbilityLabel = activeAbilityLabel;
             this.debugPanel = debugPanel;
             this.pauseButton = pauseButton;
             hudControls = [healthLabel, healthBackground, levelLabel, xpLabel, xpBackground,
@@ -53,9 +46,8 @@ namespace Vampire_Survivors.UI
             return player.IsDead;
         }
 
-        public bool RefreshFrame(int elapsedMs)
+        public bool RefreshFrame()
         {
-            UpdateActiveAbilityFeedback(elapsedMs);
             UpdateUpgrades();
             UpdateExperience();
             UpdateWave();
@@ -89,10 +81,9 @@ namespace Vampire_Survivors.UI
 
         public void UpdateUpgrades()
         {
-            var version = (session.Upgrades.Version, session.Abilities.HudVersion);
-            if (lastUpgrades == version)
+            if (lastUpgradeVersion == session.Upgrades.Version)
                 return;
-            lastUpgrades = version;
+            lastUpgradeVersion = session.Upgrades.Version;
             upgradesList.BeginUpdate();
             upgradesList.Items.Clear();
             foreach (UpgradeType type in UpgradeSystem.Types)
@@ -101,74 +92,7 @@ namespace Vampire_Survivors.UI
                     upgradesList.Items.Add(session.Upgrades.GetStackText(type));
             }
 
-            IReadOnlyList<MajorAbilityType> acquired = session.Abilities.AcquiredAbilities;
-            if (acquired.Count > 0)
-            {
-                if (upgradesList.Items.Count > 0)
-                    upgradesList.Items.Add(string.Empty);
-                upgradesList.Items.Add("ABILITIES");
-                for (int i = 0; i < acquired.Count; i++)
-                {
-                    MajorAbilityType ability = acquired[i];
-                    string title = AbilitySystem.GetInfo(ability).Title;
-                    string status = session.Abilities.GetHudStatus(ability);
-                    upgradesList.Items.Add($"[{i + 1}] {title} - {status}");
-                }
-            }
-
             upgradesList.EndUpdate();
-        }
-
-        public void ShowInstantAbilityFeedback(string text)
-        {
-            instantFeedbackText = text;
-            instantFeedbackRemainingMs = 850;
-            RefreshActiveAbilityFeedback();
-        }
-
-        public void UpdateActiveAbilityFeedback(int elapsedMs)
-        {
-            if (instantFeedbackRemainingMs > 0)
-            {
-                instantFeedbackRemainingMs = Math.Max(0, instantFeedbackRemainingMs - elapsedMs);
-                if (instantFeedbackRemainingMs == 0)
-                    instantFeedbackText = string.Empty;
-            }
-            RefreshActiveAbilityFeedback();
-        }
-
-        public void RefreshActiveAbilityFeedback()
-        {
-            var feedback = (session.Abilities.HudVersion, instantFeedbackText);
-            if (lastAbilityFeedback != feedback)
-            {
-                lastAbilityFeedback = feedback;
-                List<string> lines = new();
-                foreach (MajorAbilityType ability in session.Abilities.AcquiredAbilities)
-                {
-                    int remainingMs = session.Abilities.GetRemainingDurationMs(ability);
-                    if (remainingMs <= 0)
-                        continue;
-                    string title = AbilitySystem.GetInfo(ability).Title;
-                    int seconds = Math.Max(1, (int)Math.Ceiling(remainingMs / 1000d));
-                    lines.Add($"{title} ACTIVE - {seconds}s");
-                }
-                if (instantFeedbackRemainingMs > 0 && !string.IsNullOrEmpty(instantFeedbackText))
-                    lines.Add(instantFeedbackText);
-                activeAbilityLabel.Text = string.Join(Environment.NewLine, lines);
-                activeAbilityPanel.Height = activeAbilityLabel.PreferredHeight + 8;
-                Layout(waveLabel.Parent!.ClientSize);
-            }
-            activeAbilityPanel.Visible = activeAbilityLabel.Text.Length > 0 && waveLabel.Visible;
-        }
-
-        public void ResetActiveAbilityFeedback()
-        {
-            lastAbilityFeedback = null;
-            instantFeedbackRemainingMs = 0;
-            instantFeedbackText = string.Empty;
-            activeAbilityLabel.Text = string.Empty;
-            activeAbilityPanel.Visible = false;
         }
 
         public void SetVisible(bool visible)
@@ -176,10 +100,7 @@ namespace Vampire_Survivors.UI
             foreach (Control control in hudControls)
                 control.Visible = visible;
             if (!visible)
-            {
-                activeAbilityPanel.Visible = false;
                 debugPanel.Visible = false;
-            }
             else if (debugPanel.Visible)
                 debugPanel.BringToFront();
         }
@@ -197,14 +118,6 @@ namespace Vampire_Survivors.UI
 
             debugPanel.Top = Math.Max(0, Math.Min(upgradesList.Bottom + gap,
                 size.Height - debugPanel.Height - margin));
-            activeAbilityPanel.Top = waveLabel.Bottom + gap;
-            int left = (size.Width - activeAbilityPanel.Width) / 2;
-            // Keep ability text beside the sidebar and Debug when the window is narrow.
-            if (activeAbilityPanel.Top < upgradesList.Bottom)
-                left = Math.Min(left, upgradesList.Left - activeAbilityPanel.Width - gap);
-            if (debugPanel.Visible)
-                left = Math.Min(left, debugPanel.Left - activeAbilityPanel.Width - gap);
-            activeAbilityPanel.Left = Math.Max(margin, left);
         }
     }
 
@@ -216,8 +129,6 @@ namespace Vampire_Survivors.UI
         private readonly Label title;
         private readonly Button[] buttons;
         private List<UpgradeType> upgradeChoices = new();
-        private List<MajorAbilityType> abilityChoices = new();
-        private bool isMajorAbility;
 
         public LevelUpController(GameSession session, HudController hud, ScreenController screens,
             Label title, Button first, Button second, Button third)
@@ -237,44 +148,26 @@ namespace Vampire_Survivors.UI
                 return;
             }
             int level = session.PendingLevels.Peek();
-            // Every tenth level offers an unowned ability, then falls back to upgrades.
-            abilityChoices = level % 10 == 0 ? session.Abilities.GetRandomChoices() : new();
-            isMajorAbility = abilityChoices.Count > 0;
-            upgradeChoices = isMajorAbility ? new() : session.Upgrades.GetRandomUpgrades();
-            title.Text = isMajorAbility
-                ? $"LEVEL {level} — CHOOSE AN ABILITY"
-                : $"LEVEL {level} — CHOOSE AN UPGRADE";
+            // Every level offers three different normal upgrades.
+            upgradeChoices = session.Upgrades.GetRandomUpgrades(buttons.Length);
+            title.Text = $"LEVEL {level} — CHOOSE AN UPGRADE";
             for (int index = 0; index < buttons.Length; index++)
             {
                 Button button = buttons[index];
-                int choiceCount = isMajorAbility ? abilityChoices.Count : upgradeChoices.Count;
-                button.Visible = index < choiceCount;
-                if (index >= choiceCount)
-                    continue;
-                if (isMajorAbility)
-                {
-                    var definition = AbilitySystem.GetInfo(abilityChoices[index]);
-                    button.Text = $"{definition.Title}{Environment.NewLine}{definition.Description}";
-                }
-                else
-                {
-                    UpgradeType choice = upgradeChoices[index];
-                    (string name, string description) = UpgradeSystem.GetUpgradeInfo(choice);
-                    button.Text = $"{name}{Environment.NewLine}{description}   Owned: {session.Upgrades.GetStackCount(choice)}";
-                }
+                button.Visible = true;
+                UpgradeType choice = upgradeChoices[index];
+                (string name, string description) = UpgradeSystem.GetUpgradeInfo(choice);
+                button.Text = $"{name}{Environment.NewLine}{description}   Owned: {session.Upgrades.GetStackCount(choice)}";
             }
             screens.ShowLevelUp();
         }
 
         public bool Choose(int index, bool infiniteXp)
         {
-            int count = isMajorAbility ? abilityChoices.Count : upgradeChoices.Count;
-            if (screens.State != GameState.LevelUp || session.PendingLevels.Count == 0 || index < 0 || index >= count)
+            if (screens.State != GameState.LevelUp || session.PendingLevels.Count == 0 ||
+                index < 0 || index >= upgradeChoices.Count)
                 return false;
-            if (isMajorAbility)
-                session.Abilities.Acquire(abilityChoices[index]);
-            else
-                session.Upgrades.ApplyUpgrade(upgradeChoices[index], session.Player);
+            session.Upgrades.ApplyUpgrade(upgradeChoices[index], session.Player);
             session.PendingLevels.Dequeue();
             if (infiniteXp)
                 session.GrantNextLevel();

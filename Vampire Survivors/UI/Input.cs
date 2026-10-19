@@ -5,34 +5,30 @@ namespace Vampire_Survivors.UI
     public sealed class GameInputController
     {
         private readonly HashSet<Keys> keysDown = new();
-        private readonly Form form;
         private readonly GameSession session;
         private readonly ScreenController screens;
         private readonly HudController hud;
         private readonly LevelUpController levels;
         private readonly DebugController debug;
-        private readonly CheckBox noAbilityCooldowns;
         private readonly Action pause;
         private readonly Action resume;
 
-        public GameInputController(Form form, GameSession session, ScreenController screens,
+        public GameInputController(GameSession session, ScreenController screens,
             HudController hud, LevelUpController levels, DebugController debug,
-            CheckBox noAbilityCooldowns, Action pause, Action resume)
+            Action pause, Action resume)
         {
-            this.form = form;
             this.session = session;
             this.screens = screens;
             this.hud = hud;
             this.levels = levels;
             this.debug = debug;
-            this.noAbilityCooldowns = noAbilityCooldowns;
             this.pause = pause;
             this.resume = resume;
         }
 
         public void KeyDown(KeyEventArgs e)
         {
-            // Holding a key should not repeatedly toggle Pause or activate an ability.
+            // Holding a key should not repeatedly toggle Pause or the debug panel.
             bool isNewPress = keysDown.Add(e.KeyCode);
             if (e.KeyCode == Keys.F3)
             {
@@ -52,13 +48,6 @@ namespace Vampire_Survivors.UI
                     screens.ReturnFromPauseSettings();
                 Consume(e);
                 return;
-            }
-
-            if (screens.State == GameState.Playing && !session.Player.IsDead && isNewPress &&
-                TryGetAbilitySlot(e.KeyCode, out int slot))
-            {
-                ActivateAbilityAtSlot(slot);
-                Consume(e);
             }
         }
 
@@ -88,38 +77,6 @@ namespace Vampire_Survivors.UI
             if (x != 0 && y != 0)
                 return new PointF(x * 0.7071f, y * 0.7071f);
             return new PointF(x, y);
-        }
-
-        private static bool TryGetAbilitySlot(Keys key, out int slot)
-        {
-            slot = -1;
-            if (key >= Keys.D1 && key <= Keys.D9)
-                slot = (int)key - (int)Keys.D1;
-            else if (key >= Keys.NumPad1 && key <= Keys.NumPad9)
-                slot = (int)key - (int)Keys.NumPad1;
-            return slot >= 0;
-        }
-
-        private void ActivateAbilityAtSlot(int slot)
-        {
-            Point cursor = form.PointToClient(Cursor.Position);
-
-            MajorAbilityType? ability = session.ActivateAbility(slot, cursor, noAbilityCooldowns.Checked);
-            if (ability is null)
-                return;
-
-            hud.UpdateExperience();
-            if (session.PendingLevels.Count > 0 && screens.State == GameState.Playing)
-                levels.ShowNext();
-            if (ability == MajorAbilityType.Shockwave)
-                hud.UpdateWave();
-
-            if (session.Abilities.GetRemainingDurationMs(ability.Value) > 0)
-                hud.RefreshActiveAbilityFeedback();
-            else
-                hud.ShowInstantAbilityFeedback($"{AbilitySystem.GetInfo(ability.Value).Title}!");
-            hud.UpdateUpgrades();
-            form.Invalidate();
         }
 
         public void MouseDown(MouseEventArgs e)

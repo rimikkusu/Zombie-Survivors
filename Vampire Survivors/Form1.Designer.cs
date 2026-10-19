@@ -36,13 +36,10 @@ namespace Vampire_Survivors
         private System.Windows.Forms.Button btnUpgrade2;
         private System.Windows.Forms.Button btnUpgrade3;
         private System.Windows.Forms.Label lblWave;
-        private System.Windows.Forms.Panel pnlActiveAbility;
-        private System.Windows.Forms.Label lblActiveAbility;
         private System.Windows.Forms.Panel pnlDebug;
         private System.Windows.Forms.Label lblDebugTitle;
         private System.Windows.Forms.CheckBox chkInfiniteHealth;
         private System.Windows.Forms.CheckBox chkInfiniteXp;
-        private System.Windows.Forms.CheckBox chkNoAbilityCooldowns;
         private System.Windows.Forms.Button btnDebugAddXp;
         private System.Windows.Forms.Button btnDebugLevelUp;
         private System.Windows.Forms.Button btnDebugNextWave;
@@ -109,8 +106,6 @@ namespace Vampire_Survivors
             btnUpgrade2 = new Button();
             btnUpgrade3 = new Button();
             lblWave = new Label();
-            pnlActiveAbility = new Panel();
-            lblActiveAbility = new Label();
             pnlDebug = new Panel();
             lblDebugInfo = new Label();
             btnDebugHeal = new Button();
@@ -118,7 +113,6 @@ namespace Vampire_Survivors
             btnDebugNextWave = new Button();
             btnDebugLevelUp = new Button();
             btnDebugAddXp = new Button();
-            chkNoAbilityCooldowns = new CheckBox();
             chkInfiniteXp = new CheckBox();
             chkInfiniteHealth = new CheckBox();
             lblDebugTitle = new Label();
@@ -139,7 +133,6 @@ namespace Vampire_Survivors
             pnlSettings.SuspendLayout();
             pnlSettingsContent.SuspendLayout();
             pnlLevelUp.SuspendLayout();
-            pnlActiveAbility.SuspendLayout();
             pnlDebug.SuspendLayout();
             pnlPause.SuspendLayout();
             SuspendLayout();
@@ -559,30 +552,6 @@ namespace Vampire_Survivors
             lblWave.Text = "WAVE 1\r\nENEMIES: 3";
             lblWave.TextAlign = ContentAlignment.MiddleCenter;
             // 
-            // pnlActiveAbility
-            // 
-            pnlActiveAbility.BackColor = Color.FromArgb(205, 12, 12, 12);
-            pnlActiveAbility.BorderStyle = BorderStyle.FixedSingle;
-            pnlActiveAbility.Controls.Add(lblActiveAbility);
-            pnlActiveAbility.Location = new Point(552, 48);
-            pnlActiveAbility.Margin = new Padding(3, 2, 3, 2);
-            pnlActiveAbility.Name = "pnlActiveAbility";
-            pnlActiveAbility.Size = new Size(385, 90);
-            pnlActiveAbility.TabIndex = 14;
-            pnlActiveAbility.Visible = false;
-            // 
-            // lblActiveAbility
-            // 
-            lblActiveAbility.BackColor = Color.Transparent;
-            lblActiveAbility.Dock = DockStyle.Fill;
-            lblActiveAbility.Font = new Font("Segoe UI", 10.5F, FontStyle.Bold);
-            lblActiveAbility.ForeColor = Color.FromArgb(145, 255, 160);
-            lblActiveAbility.Location = new Point(0, 0);
-            lblActiveAbility.Name = "lblActiveAbility";
-            lblActiveAbility.Size = new Size(383, 88);
-            lblActiveAbility.TabIndex = 0;
-            lblActiveAbility.TextAlign = ContentAlignment.MiddleCenter;
-            // 
             // pnlDebug
             // 
             pnlDebug.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -594,7 +563,6 @@ namespace Vampire_Survivors
             pnlDebug.Controls.Add(btnDebugNextWave);
             pnlDebug.Controls.Add(btnDebugLevelUp);
             pnlDebug.Controls.Add(btnDebugAddXp);
-            pnlDebug.Controls.Add(chkNoAbilityCooldowns);
             pnlDebug.Controls.Add(chkInfiniteXp);
             pnlDebug.Controls.Add(chkInfiniteHealth);
             pnlDebug.Controls.Add(lblDebugTitle);
@@ -684,18 +652,6 @@ namespace Vampire_Survivors
             btnDebugAddXp.Text = "+100 XP";
             btnDebugAddXp.UseVisualStyleBackColor = false;
             btnDebugAddXp.Click += BtnDebugAddXp_Click;
-            // 
-            // chkNoAbilityCooldowns
-            // 
-            chkNoAbilityCooldowns.BackColor = Color.Transparent;
-            chkNoAbilityCooldowns.ForeColor = Color.White;
-            chkNoAbilityCooldowns.Location = new Point(10, 64);
-            chkNoAbilityCooldowns.Margin = new Padding(3, 2, 3, 2);
-            chkNoAbilityCooldowns.Name = "chkNoAbilityCooldowns";
-            chkNoAbilityCooldowns.Size = new Size(257, 16);
-            chkNoAbilityCooldowns.TabIndex = 3;
-            chkNoAbilityCooldowns.Text = "No Ability Cooldowns";
-            chkNoAbilityCooldowns.UseVisualStyleBackColor = false;
             // 
             // chkInfiniteXp
             // 
@@ -867,7 +823,6 @@ namespace Vampire_Survivors
             Controls.Add(lstUpgrades);
             Controls.Add(lblUpgradesTitle);
             Controls.Add(lblWave);
-            Controls.Add(pnlActiveAbility);
             Controls.Add(pnlLevelUp);
             Controls.Add(pnlPause);
             Controls.Add(lblHealth);
@@ -895,7 +850,6 @@ namespace Vampire_Survivors
             pnlSettings.ResumeLayout(false);
             pnlSettingsContent.ResumeLayout(false);
             pnlLevelUp.ResumeLayout(false);
-            pnlActiveAbility.ResumeLayout(false);
             pnlDebug.ResumeLayout(false);
             pnlPause.ResumeLayout(false);
             ResumeLayout(false);
