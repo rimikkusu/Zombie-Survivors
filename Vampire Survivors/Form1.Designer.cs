@@ -30,7 +30,6 @@ namespace Vampire_Survivors
         private System.Windows.Forms.ComboBox cmbDisplayMode;
         private System.Windows.Forms.Button btnApplySettings;
         private System.Windows.Forms.Button btnSettingsBack;
-        private System.Windows.Forms.Timer menuAnimationTimer;
         private System.Windows.Forms.Panel pnlLevelUp;
         private System.Windows.Forms.Label lblLevelUpTitle;
         private System.Windows.Forms.Button btnUpgrade1;
@@ -104,7 +103,6 @@ namespace Vampire_Survivors
             cmbDisplayMode = new ComboBox();
             btnApplySettings = new Button();
             btnSettingsBack = new Button();
-            menuAnimationTimer = new System.Windows.Forms.Timer(components);
             pnlLevelUp = new Panel();
             lblLevelUpTitle = new Label();
             btnUpgrade1 = new Button();
@@ -226,9 +224,10 @@ namespace Vampire_Survivors
             // lblLevel
             // 
             lblLevel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            lblLevel.AutoSize = true;
             lblLevel.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
             lblLevel.ForeColor = Color.White;
-            lblLevel.Location = new Point(19, 479);
+            lblLevel.Location = new Point(18, 474);
             lblLevel.Name = "lblLevel";
             lblLevel.Size = new Size(262, 19);
             lblLevel.TabIndex = 3;
@@ -259,13 +258,14 @@ namespace Vampire_Survivors
             // lblXp
             // 
             lblXp.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            lblXp.AutoSize = true;
             lblXp.Font = new Font("Segoe UI", 9F);
             lblXp.ForeColor = Color.White;
             lblXp.Location = new Point(18, 498);
             lblXp.Name = "lblXp";
             lblXp.Size = new Size(262, 18);
             lblXp.TabIndex = 5;
-            lblXp.Text = "0 / 50 XP";
+            lblXp.Text = "0 / 20 XP";
             lblXp.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // pnlMainMenu
@@ -365,8 +365,6 @@ namespace Vampire_Survivors
             // 
             pnlSettings.BackColor = Color.FromArgb(12, 12, 12);
             pnlSettings.Controls.Add(pnlSettingsContent);
-            pnlSettings.Controls.Add(lblLevel);
-            pnlSettings.Controls.Add(lblXp);
             pnlSettings.Dock = DockStyle.Fill;
             pnlSettings.Location = new Point(0, 0);
             pnlSettings.Margin = new Padding(3, 2, 3, 2);
@@ -463,11 +461,6 @@ namespace Vampire_Survivors
             btnSettingsBack.Text = "BACK";
             btnSettingsBack.UseVisualStyleBackColor = false;
             btnSettingsBack.Click += BtnSettingsBack_Click;
-            // 
-            // menuAnimationTimer
-            // 
-            menuAnimationTimer.Interval = 20;
-            menuAnimationTimer.Tick += MenuAnimationTimer_Tick;
             // 
             // pnlLevelUp
             // 
@@ -614,6 +607,7 @@ namespace Vampire_Survivors
             // 
             // lblDebugInfo
             // 
+            lblDebugInfo.AutoSize = true;
             lblDebugInfo.ForeColor = Color.Gainsboro;
             lblDebugInfo.Location = new Point(10, 225);
             lblDebugInfo.Name = "lblDebugInfo";
@@ -877,6 +871,8 @@ namespace Vampire_Survivors
             Controls.Add(pnlLevelUp);
             Controls.Add(pnlPause);
             Controls.Add(lblHealth);
+            Controls.Add(lblLevel);
+            Controls.Add(lblXp);
             Controls.Add(pnlXpBackground);
             Controls.Add(pnlGameOver);
             Controls.Add(pnlHealthBackground);
@@ -886,6 +882,7 @@ namespace Vampire_Survivors
             KeyPreview = true;
             Margin = new Padding(3, 2, 3, 2);
             Name = "Form1";
+            MinimumSize = new Size(800, 550);
             StartPosition = FormStartPosition.CenterScreen;
             Text = "ArenaSurvivors";
             WindowState = FormWindowState.Maximized;

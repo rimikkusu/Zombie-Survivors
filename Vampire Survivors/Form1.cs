@@ -22,7 +22,6 @@ namespace Vampire_Survivors
             InitializeComponent();
 
             DoubleBuffered = true;
-            KeyPreview = true;
 
             Control[] foregroundControls = [pnlHealthBackground, lblHealth, lblLevel, pnlXpBackground,
                 lblXp, lblWave, pnlActiveAbility, lblUpgradesTitle, lstUpgrades, btnPause, pnlDebug];
@@ -35,18 +34,15 @@ namespace Vampire_Survivors
                 lblLevel, lblXp, pnlXpBackground, pnlXpFill, lblWave, lblUpgradesTitle,
                 lstUpgrades, btnPause, pnlActiveAbility, lblActiveAbility, pnlDebug);
             screens = new ScreenController(this, hud, pnlMainMenu, pnlMenuContent, pnlSettings,
-                pnlSettingsContent, pnlGameOver, pnlLevelUp, pnlPause, picLogo, lblWave,
-                pnlActiveAbility, menuAnimationTimer,
-                [btnPlay, btnSettings, btnQuit, btnApplySettings, btnSettingsBack,
-                 btnRespawn, btnPause, btnResume, btnPauseSettings, btnPauseMainMenu]);
-            display = new DisplayManager(this, cmbDisplayMode, screens);
+                pnlSettingsContent, pnlGameOver, pnlLevelUp, pnlPause);
+            display = new DisplayManager(this, cmbDisplayMode);
             levels = new LevelUpController(session, hud, screens, lblLevelUpTitle,
                 btnUpgrade1, btnUpgrade2, btnUpgrade3);
             debug = new DebugController(session, hud, levels, screens, pnlDebug, lblDebugInfo,
                 chkInfiniteHealth, Invalidate);
             gameInput = new GameInputController(this, session, screens, hud, levels, debug,
                 chkNoAbilityCooldowns, PauseGame, ResumeGame);
-            UpdateHealthUI();
+            hud.UpdateHealth();
             hud.UpdateExperience();
 
             KeyDown += Form1_KeyDown;
@@ -54,6 +50,7 @@ namespace Vampire_Survivors
             MouseDown += Form1_MouseDown;
             Resize += Form1_Resize;
             SizeChanged += Form1_SizeChanged;
+            Deactivate += (_, _) => gameInput.Reset();
 
             gameTimer = new System.Windows.Forms.Timer();
             gameTimer.Interval = 16;
@@ -85,11 +82,11 @@ namespace Vampire_Survivors
 
             if (!session.Player.IsDead)
             {
-                bool experienceChanged = session.Update(PointToClient(Cursor.Position),
-                    chkNoAbilityCooldowns.Checked, chkInfiniteHealth.Checked);
-                bool died = hud.RefreshFrame(16, experienceChanged);
-                if (session.LevelUps.HasPending)
-                    ShowNextLevelUp();
+                session.Update(PointToClient(Cursor.Position),
+                    gameInput.GetMovementDirection(), chkNoAbilityCooldowns.Checked, chkInfiniteHealth.Checked);
+                bool died = hud.RefreshFrame(16);
+                if (session.PendingLevels.Count > 0)
+                    levels.ShowNext();
                 if (died)
                     screens.ShowGameOver();
             }
@@ -104,14 +101,6 @@ namespace Vampire_Survivors
             renderer.Draw(e.Graphics, ClientSize, session);
         }
 
-        private void UpdateHealthUI()
-        {
-            if (!hud.UpdateHealth())
-                return;
-            screens.ShowGameOver();
-        }
-
-        private void MenuAnimationTimer_Tick(object? sender, EventArgs e) => screens.AnimateLogo();
         private void BtnPlay_Click(object? sender, EventArgs e) => StartNewGame();
         private void BtnSettings_Click(object? sender, EventArgs e) => screens.ShowSettingsFromMenu();
         private void BtnSettingsBack_Click(object? sender, EventArgs e)
@@ -130,16 +119,16 @@ namespace Vampire_Survivors
         private void PauseGame()
         {
             if (screens.Pause())
-                session.Input.ResetMovement();
+                gameInput.ResetMovement();
         }
 
         private void ResumeGame()
         {
             if (!screens.Resume())
                 return;
-            session.Input.ResetMovement();
-            if (session.LevelUps.HasPending)
-                ShowNextLevelUp();
+            gameInput.ResetMovement();
+            if (session.PendingLevels.Count > 0)
+                levels.ShowNext();
         }
 
         private void BtnPauseMainMenu_Click(object? sender, EventArgs e)
@@ -157,7 +146,6 @@ namespace Vampire_Survivors
 
         private void StartNewGame()
         {
-            screens.StartGame();
             RestartGame();
             gameTimer.Start();
         }
@@ -169,19 +157,17 @@ namespace Vampire_Survivors
         private void BtnDebugKillEnemies_Click(object? sender, EventArgs e) => debug.ClearWave(false);
         private void BtnDebugHeal_Click(object? sender, EventArgs e) => debug.Heal();
 
-        private void BtnRespawn_Click(object? sender, EventArgs e)
-        {
-            RestartGame();
-        }
+        private void BtnRespawn_Click(object? sender, EventArgs e) => RestartGame();
 
         private void RestartGame()
         {
             // The form may finish maximizing after the session was created.
             session.Resize(ClientSize);
             session.Reset();
+            gameInput.Reset();
             hud.ResetActiveAbilityFeedback();
             screens.SetPlaying();
-            UpdateHealthUI();
+            hud.UpdateHealth();
             hud.UpdateExperience();
             hud.UpdateUpgrades();
             hud.UpdateWave();
@@ -189,7 +175,6 @@ namespace Vampire_Survivors
             Invalidate();
         }
 
-        private void ShowNextLevelUp() => levels.ShowNext();
         private void ChooseLevelUpOption(int index)
         {
             if (levels.Choose(index, chkInfiniteXp.Checked))
@@ -216,10 +201,6 @@ namespace Vampire_Survivors
             gameTimer.Stop();
             gameTimer.Tick -= GameTimer_Tick;
             gameTimer.Dispose();
-
-            menuAnimationTimer.Stop();
-            menuAnimationTimer.Tick -= MenuAnimationTimer_Tick;
-            menuAnimationTimer.Dispose();
 
             renderer.Dispose();
         }

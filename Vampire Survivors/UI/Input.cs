@@ -4,6 +4,7 @@ namespace Vampire_Survivors.UI
 {
     public sealed class GameInputController
     {
+        private readonly HashSet<Keys> keysDown = new();
         private readonly Form form;
         private readonly GameSession session;
         private readonly ScreenController screens;
@@ -31,7 +32,8 @@ namespace Vampire_Survivors.UI
 
         public void KeyDown(KeyEventArgs e)
         {
-            bool isNewPress = session.Input.KeyDown(e.KeyCode);
+            // Holding a key should not repeatedly toggle Pause or activate an ability.
+            bool isNewPress = keysDown.Add(e.KeyCode);
             if (e.KeyCode == Keys.F3)
             {
                 if (isNewPress)
@@ -53,7 +55,7 @@ namespace Vampire_Survivors.UI
             }
 
             if (screens.State == GameState.Playing && !session.Player.IsDead && isNewPress &&
-                InputManager.TryGetAbilitySlot(e.KeyCode, out int slot))
+                TryGetAbilitySlot(e.KeyCode, out int slot))
             {
                 ActivateAbilityAtSlot(slot);
                 Consume(e);
@@ -66,20 +68,48 @@ namespace Vampire_Survivors.UI
             e.SuppressKeyPress = true;
         }
 
-        public void KeyUp(KeyEventArgs e) => session.Input.KeyUp(e.KeyCode);
+        public void KeyUp(KeyEventArgs e) => keysDown.Remove(e.KeyCode);
+
+        public void Reset() => keysDown.Clear();
+
+        public void ResetMovement()
+        {
+            keysDown.Remove(Keys.W);
+            keysDown.Remove(Keys.A);
+            keysDown.Remove(Keys.S);
+            keysDown.Remove(Keys.D);
+        }
+
+        public PointF GetMovementDirection()
+        {
+            float x = (keysDown.Contains(Keys.D) ? 1 : 0) - (keysDown.Contains(Keys.A) ? 1 : 0);
+            float y = (keysDown.Contains(Keys.S) ? 1 : 0) - (keysDown.Contains(Keys.W) ? 1 : 0);
+            // Normalize diagonals so they move at the same speed as straight lines.
+            if (x != 0 && y != 0)
+                return new PointF(x * 0.7071f, y * 0.7071f);
+            return new PointF(x, y);
+        }
+
+        private static bool TryGetAbilitySlot(Keys key, out int slot)
+        {
+            slot = -1;
+            if (key >= Keys.D1 && key <= Keys.D9)
+                slot = (int)key - (int)Keys.D1;
+            else if (key >= Keys.NumPad1 && key <= Keys.NumPad9)
+                slot = (int)key - (int)Keys.NumPad1;
+            return slot >= 0;
+        }
 
         private void ActivateAbilityAtSlot(int slot)
         {
             Point cursor = form.PointToClient(Cursor.Position);
-            int previousLevel = session.Player.Level;
-            int previousExperience = session.Player.Experience;
+
             MajorAbilityType? ability = session.ActivateAbility(slot, cursor, noAbilityCooldowns.Checked);
             if (ability is null)
                 return;
 
-            if (session.Player.Level != previousLevel || session.Player.Experience != previousExperience)
-                hud.UpdateExperience();
-            if (session.LevelUps.HasPending && screens.State == GameState.Playing)
+            hud.UpdateExperience();
+            if (session.PendingLevels.Count > 0 && screens.State == GameState.Playing)
                 levels.ShowNext();
             if (ability == MajorAbilityType.Shockwave)
                 hud.UpdateWave();
@@ -98,15 +128,10 @@ namespace Vampire_Survivors.UI
                 screens.State != GameState.Playing || session.Player.IsDead)
                 return;
 
-            int previousLevel = session.Player.Level;
-            int previousExperience = session.Player.Experience;
             session.Shoot(e.Location);
-            if (session.Player.Level != previousLevel || session.Player.Experience != previousExperience)
-            {
-                hud.UpdateExperience();
-                if (session.LevelUps.HasPending && screens.State == GameState.Playing)
-                    levels.ShowNext();
-            }
+            hud.UpdateExperience();
+            if (session.PendingLevels.Count > 0)
+                levels.ShowNext();
             debug.UpdateInfo();
         }
     }

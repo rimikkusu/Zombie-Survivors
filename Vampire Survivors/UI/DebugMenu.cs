@@ -12,7 +12,6 @@ namespace Vampire_Survivors.UI
         private readonly Label information;
         private readonly CheckBox infiniteHealth;
         private readonly Action repaint;
-        private (int Level, int Xp, int Required, int Wave, int Hp, int MaxHp, int Enemies)? lastInfo;
 
         public DebugController(GameSession session, HudController hud, LevelUpController levels,
             ScreenController screens, Panel panel, Label information, CheckBox infiniteHealth,
@@ -33,6 +32,7 @@ namespace Vampire_Survivors.UI
             if (screens.State is GameState.MainMenu or GameState.Settings)
                 return;
             panel.Visible = !panel.Visible;
+            hud.Layout(panel.Parent!.ClientSize);
             if (panel.Visible)
             {
                 UpdateInfo();
@@ -56,15 +56,10 @@ namespace Vampire_Survivors.UI
         {
             if (amount <= 0 || session.Player.IsDead)
                 return;
-            int previousLevel = session.Player.Level;
-            int previousExperience = session.Player.Experience;
             session.AddExperience(amount);
-            if (session.Player.Level != previousLevel || session.Player.Experience != previousExperience)
-            {
-                hud.UpdateExperience();
-                if (session.LevelUps.HasPending && screens.State == GameState.Playing)
-                    levels.ShowNext();
-            }
+            hud.UpdateExperience();
+            if (session.PendingLevels.Count > 0 && screens.State == GameState.Playing)
+                levels.ShowNext();
             UpdateInfo();
             repaint();
         }
@@ -91,20 +86,13 @@ namespace Vampire_Survivors.UI
         {
             if (!panel.Visible)
                 return;
-            var values = (session.Player.Level, session.Player.Experience,
-                session.Player.ExperienceToNextLevel, session.Waves.CurrentWave,
-                session.Player.Health, session.Player.MaxHealth, session.Enemies.Count);
-            if (lastInfo == values)
-                return;
-            lastInfo = values;
             string text =
                 $"LEVEL: {session.Player.Level}{Environment.NewLine}" +
                 $"XP: {session.Player.Experience} / {session.Player.ExperienceToNextLevel}{Environment.NewLine}" +
                 $"WAVE: {session.Waves.CurrentWave}{Environment.NewLine}" +
                 $"HP: {session.Player.Health} / {session.Player.MaxHealth}{Environment.NewLine}" +
                 $"ENEMIES: {session.Enemies.Count}";
-            if (!string.Equals(information.Text, text, StringComparison.Ordinal))
-                information.Text = text;
+            information.Text = text;
         }
     }
 }
